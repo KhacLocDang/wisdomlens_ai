@@ -40,7 +40,7 @@ Optional variables in `.env`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `USE_FAKE_ANSWERS` | `false` | Set to `true` to skip Gemini and return static placeholder answers |
-| `GEMINI_MODEL` | `gemini-2.0-flash` | Gemini model name |
+| `GEMINI_MODEL` || Gemini model name |
 
 PostgreSQL is configured automatically via Docker Compose (`DATABASE_URL`). Each successful `/ask` request is saved to the `inquiries` table.
 
@@ -98,4 +98,4 @@ The Streamlit app has two tabs:
 
 - Add Qdrant or Chroma vector database
 - Add RAG document ingestion
-- Add local model support via Ollama (e.g. Llama, Gemma — non-China models)
+- Add local model support via Ollama (e.g. Llama, Gemma)
