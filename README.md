@@ -41,8 +41,13 @@ Optional variables in `.env`:
 |----------|---------|-------------|
 | `USE_FAKE_ANSWERS` | `false` | Set to `true` to skip Gemini and return static placeholder answers |
 | `GEMINI_MODEL` || Gemini model name |
+| `POSTGRES_USER` | `wisdomlens` | PostgreSQL username (local dev) |
+| `POSTGRES_PASSWORD` | `wisdomlens` | PostgreSQL password (local dev — change for production) |
+| `POSTGRES_DB` | `wisdomlens` | PostgreSQL database name |
 
-PostgreSQL is configured automatically via Docker Compose (`DATABASE_URL`). Each successful `/ask` request is saved to the `inquiries` table.
+PostgreSQL credentials are read from `.env` by Docker Compose. `DATABASE_URL` for the backend is built automatically. Each successful `/ask` request is saved to the `inquiries` table.
+
+Schema is managed by **Alembic**. Migrations run automatically on startup (`alembic upgrade head`).
 
 ## Run with Docker
 
@@ -59,13 +64,23 @@ Stop with `Ctrl+C`, or run in background: `docker compose up -d --build`
 
 ## Example API requests
 
-Ask a question:
+Ask a question (Vietnamese):
 
 ```powershell
 curl -X POST "http://localhost:8000/ask" `
   -H "Content-Type: application/json" `
-  -d "{\"question\": \"Why are humans afraid of failure?\"}"
+  -d "{\"question\": \"Vì sao con người sợ thất bại?\", \"language\": \"vi\"}"
 ```
+
+Ask a question (English):
+
+```powershell
+curl -X POST "http://localhost:8000/ask" `
+  -H "Content-Type: application/json" `
+  -d "{\"question\": \"Why are humans afraid of failure?\", \"language\": \"en\"}"
+```
+
+`language` accepts `"vi"` (default) or `"en"`.
 
 List saved questions:
 
@@ -83,8 +98,53 @@ curl "http://localhost:8000/inquiries/1"
 
 The Streamlit app has two tabs:
 
-- **Hỏi (Ask)** — ask a new question
+- **Hỏi (Ask)** — ask a new question, choose Vietnamese or English for the answer
 - **Lịch sử (History)** — browse saved questions from PostgreSQL
+
+## Database migrations (Alembic)
+
+Schema changes are managed with Alembic. Migrations run automatically on `docker compose up`.
+
+To run migrations manually inside the backend container:
+
+```powershell
+docker compose exec backend alembic upgrade head
+```
+
+To create a new migration after changing a model:
+
+```powershell
+docker compose exec backend alembic revision --autogenerate -m "describe change"
+docker compose exec backend alembic upgrade head
+```
+
+> **Important:** Never use `docker compose down -v` unless you intentionally want to erase all data. Use `docker compose down` (without `-v`) to stop safely.
+
+## Backup and restore
+
+### Backup (pg_dump → local + OneDrive)
+
+```powershell
+.\scripts\backup.ps1
+```
+
+Saves a `.sql` file to `backups/` and copies it to `%USERPROFILE%\OneDrive\WisdomLens_Backups\`.
+
+- Local backups: kept for **14 days**
+- OneDrive backups: kept for **30 days**
+
+To schedule daily backups automatically, add the script to Windows Task Scheduler:
+
+- **Action:** `powershell.exe -ExecutionPolicy Bypass -File "<project-root>\scripts\backup.ps1"`
+- **Trigger:** Daily at your preferred time
+
+Replace `<project-root>` with where you cloned this repo (e.g. `%USERPROFILE%\dev\wisdomlens_ai`).
+
+### Restore
+
+```powershell
+.\scripts\restore.ps1 -BackupFile ".\backups\wisdomlens_2026-06-17_0800.sql"
+```
 
 ## Current limitations
 

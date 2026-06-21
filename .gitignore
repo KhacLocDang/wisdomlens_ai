@@ -3,3 +3,7 @@
 __pycache__/
 *.pyc
 docs/
+
+# Backup files (kept locally and on OneDrive, not in Git)
+backups/*.sql
+backups/*.dump

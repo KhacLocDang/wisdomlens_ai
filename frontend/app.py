@@ -6,6 +6,11 @@ import streamlit as st
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
 
+LANGUAGE_OPTIONS = {
+    "Tiếng Việt": "vi",
+    "English": "en",
+}
+
 
 def render_answer(data: dict) -> None:
     st.subheader("Tóm tắt / Summary")
@@ -58,7 +63,8 @@ def format_inquiry_label(item: dict) -> str:
     if len(question) > 80:
         question = question[:77] + "..."
 
-    return f"#{item['id']} — {question} ({created_text})"
+    lang = item.get("language", "vi").upper()
+    return f"#{item['id']} [{lang}] — {question} ({created_text})"
 
 
 st.set_page_config(page_title="WisdomLens AI", page_icon="🧠", layout="wide")
@@ -75,6 +81,12 @@ st.markdown(
 tab_ask, tab_history = st.tabs(["Hỏi (Ask)", "Lịch sử (History)"])
 
 with tab_ask:
+    selected_lang_label = st.selectbox(
+        "Ngôn ngữ trả lời / Answer language",
+        list(LANGUAGE_OPTIONS.keys()),
+    )
+    language = LANGUAGE_OPTIONS[selected_lang_label]
+
     question = st.text_area(
         "Câu hỏi của bạn / Your question",
         placeholder="Vì sao con người sợ thất bại? / Why are humans afraid of failure?",
@@ -89,7 +101,7 @@ with tab_ask:
             try:
                 response = requests.post(
                     f"{BACKEND_URL}/ask",
-                    json={"question": question.strip()},
+                    json={"question": question.strip(), "language": language},
                     timeout=60,
                 )
                 response.raise_for_status()
@@ -145,6 +157,10 @@ with tab_history:
 
             st.markdown(f"**Câu hỏi / Question:** {detail.get('question', '')}")
             meta_parts = [f"Nguồn / Source: {detail.get('source', '')}"]
+            lang_code = detail.get("language", "")
+            if lang_code:
+                lang_display = "Tiếng Việt" if lang_code == "vi" else "English"
+                meta_parts.append(f"Ngôn ngữ / Language: {lang_display}")
             if detail.get("model"):
                 meta_parts.append(f"Model: {detail['model']}")
             if detail.get("created_at"):

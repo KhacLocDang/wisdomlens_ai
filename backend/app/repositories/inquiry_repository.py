@@ -7,6 +7,7 @@ def save_inquiry(
     db: Session,
     answer: dict,
     *,
+    language: str,
     source: str,
     model: str | None = None,
 ) -> Inquiry:
@@ -19,6 +20,7 @@ def save_inquiry(
         similarities=answer["similarities"],
         differences=answer["differences"],
         references=answer.get("references") or [],
+        language=language,
         source=source,
         model=model,
     )

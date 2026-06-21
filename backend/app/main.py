@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.config import get_gemini_model, use_fake_answers
-from app.database import check_db_connection, get_db, init_db
+from app.database import check_db_connection, get_db
 from app.repositories.inquiry_repository import get_inquiry, list_inquiries, save_inquiry
 from app.schemas import AskRequest, AskResponse, InquiryDetail, InquirySummary
 from app.services.wisdom_service import generate_fake_answer, generate_gemini_answer
@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
     yield
 
 
@@ -42,14 +41,15 @@ def health_check():
 @app.post("/ask", response_model=AskResponse)
 def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
     question = request.question.strip()
+    language = request.language
 
     if use_fake_answers():
-        answer = generate_fake_answer(question)
+        answer = generate_fake_answer(question, language)
         source = "fake"
         model = None
     else:
         try:
-            answer = generate_gemini_answer(question)
+            answer = generate_gemini_answer(question, language)
             source = "gemini"
             model = get_gemini_model()
         except ValueError as exc:
@@ -61,7 +61,7 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
             ) from exc
 
     try:
-        save_inquiry(db, answer, source=source, model=model)
+        save_inquiry(db, answer, language=language, source=source, model=model)
     except Exception:
         logger.exception("Failed to save inquiry to database")
 
@@ -76,6 +76,7 @@ def list_inquiries_endpoint(limit: int = 20, db: Session = Depends(get_db)):
         InquirySummary(
             id=inquiry.id,
             question=inquiry.question,
+            language=inquiry.language,
             created_at=inquiry.created_at,
             source=inquiry.source,
         )
@@ -99,6 +100,7 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
         similarities=inquiry.similarities,
         differences=inquiry.differences,
         references=inquiry.references or [],
+        language=inquiry.language,
         created_at=inquiry.created_at,
         source=inquiry.source,
         model=inquiry.model,

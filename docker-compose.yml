@@ -4,13 +4,13 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: wisdomlens
-      POSTGRES_PASSWORD: wisdomlens
-      POSTGRES_DB: wisdomlens
+      POSTGRES_USER: ${POSTGRES_USER:-wisdomlens}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wisdomlens}
+      POSTGRES_DB: ${POSTGRES_DB:-wisdomlens}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U wisdomlens -d wisdomlens"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,13 +23,15 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: postgresql://wisdomlens:wisdomlens@postgres:5432/wisdomlens
+      DATABASE_URL: postgresql://${POSTGRES_USER:-wisdomlens}:${POSTGRES_PASSWORD:-wisdomlens}@postgres:5432/${POSTGRES_DB:-wisdomlens}
     volumes:
       - ./backend:/app
     depends_on:
       postgres:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:
