@@ -40,7 +40,7 @@ Optional variables in `.env`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `USE_FAKE_ANSWERS` | `false` | Set to `true` to skip Gemini and return static placeholder answers |
-| `GEMINI_MODEL` || Gemini model name |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Default Gemini model when UI does not send `model` |
 | `POSTGRES_USER` | `wisdomlens` | PostgreSQL username (local dev) |
 | `POSTGRES_PASSWORD` | `wisdomlens` | PostgreSQL password (local dev — change for production) |
 | `POSTGRES_DB` | `wisdomlens` | PostgreSQL database name |
@@ -64,12 +64,12 @@ Stop with `Ctrl+C`, or run in background: `docker compose up -d --build`
 
 ## Example API requests
 
-Ask a question (Vietnamese):
+Ask a question (Vietnamese + model):
 
 ```powershell
 curl -X POST "http://localhost:8000/ask" `
   -H "Content-Type: application/json" `
-  -d "{\"question\": \"Vì sao con người sợ thất bại?\", \"language\": \"vi\"}"
+  -d "{\"question\": \"Vì sao con người sợ thất bại?\", \"language\": \"vi\", \"model\": \"gemini-2.5-flash\"}"
 ```
 
 Ask a question (English):
@@ -80,7 +80,14 @@ curl -X POST "http://localhost:8000/ask" `
   -d "{\"question\": \"Why are humans afraid of failure?\", \"language\": \"en\"}"
 ```
 
-`language` accepts `"vi"` (default) or `"en"`.
+`language` accepts `"vi"` (default) or `"en"`.  
+`model` is optional — pick an id from `GET /models`, or omit to use `GEMINI_MODEL`.
+
+List available Gemini models (filtered for text generation):
+
+```powershell
+curl "http://localhost:8000/models"
+```
 
 List saved questions:
 
@@ -98,7 +105,7 @@ curl "http://localhost:8000/inquiries/1"
 
 The Streamlit app has two tabs:
 
-- **Hỏi (Ask)** — ask a new question, choose Vietnamese or English for the answer
+- **Hỏi (Ask)** — ask a new question, choose language and Gemini model
 - **Lịch sử (History)** — browse saved questions from PostgreSQL
 
 ## Database migrations (Alembic)

@@ -1,8 +1,37 @@
+import time
+
 from google import genai
 from google.genai import types
 
-from app.config import get_gemini_api_key, get_gemini_model
+from app.config import (
+    FALLBACK_GEMINI_MODELS,
+    get_gemini_api_key,
+    get_gemini_model,
+    normalize_model_id,
+)
 from app.schemas import AskResponse, GeminiWisdomFields
+
+# Exclude non-text / specialized model name fragments.
+_EXCLUDE_FRAGMENTS = (
+    "embedding",
+    "tts",
+    "image",
+    "imagen",
+    "live",
+    "veo",
+    "robotics",
+    "computer-use",
+    "deep-research",
+    "aquavision",
+    "nano-banana",
+    "native-audio",
+    "audio-preview",
+    "audio-latest",
+)
+
+_models_cache: list[dict] | None = None
+_models_cache_at: float = 0.0
+_MODELS_CACHE_TTL_SECONDS = 600  # 10 minutes
 
 SYSTEM_PROMPTS = {
     "en": (
@@ -99,23 +128,111 @@ FAKE_ANSWERS = {
 }
 
 
+def _is_text_gemini_model(model_id: str, supported_actions: list | None = None) -> bool:
+    lower = model_id.lower()
+    if "gemini" not in lower:
+        return False
+    if any(fragment in lower for fragment in _EXCLUDE_FRAGMENTS):
+        return False
+    if supported_actions:
+        actions = {str(a).lower() for a in supported_actions}
+        if actions and "generatecontent" not in actions and "generate_content" not in actions:
+            if not any("generate" in a and "content" in a for a in actions):
+                return False
+    return True
+
+
+def _fallback_model_list() -> list[dict]:
+    return [
+        {"id": model_id, "display_name": model_id}
+        for model_id in FALLBACK_GEMINI_MODELS
+    ]
+
+
+def list_gemini_models() -> list[dict]:
+    """List Gemini text models via API, with short cache and fallback."""
+    global _models_cache, _models_cache_at
+
+    now = time.time()
+    if _models_cache is not None and (now - _models_cache_at) < _MODELS_CACHE_TTL_SECONDS:
+        return _models_cache
+
+    api_key = get_gemini_api_key()
+    if not api_key:
+        return _fallback_model_list()
+
+    try:
+        client = genai.Client(api_key=api_key)
+        models: list[dict] = []
+        seen: set[str] = set()
+
+        for item in client.models.list():
+            raw_name = getattr(item, "name", None) or ""
+            model_id = normalize_model_id(raw_name)
+            if not model_id or model_id in seen:
+                continue
+
+            supported = getattr(item, "supported_actions", None) or getattr(
+                item, "supported_generation_methods", None
+            )
+            if isinstance(supported, str):
+                supported = [supported]
+
+            if not _is_text_gemini_model(model_id, list(supported) if supported else None):
+                continue
+
+            display_name = getattr(item, "display_name", None) or model_id
+            models.append({"id": model_id, "display_name": display_name})
+            seen.add(model_id)
+
+        models.sort(key=lambda m: m["id"])
+        if not models:
+            models = _fallback_model_list()
+
+        _models_cache = models
+        _models_cache_at = now
+        return models
+    except Exception:
+        return _fallback_model_list()
+
+
+def resolve_model(requested: str | None) -> str:
+    """Pick requested model if available, else default from env."""
+    default = get_gemini_model()
+    if not requested:
+        return default
+
+    model_id = normalize_model_id(requested)
+    available_ids = {m["id"] for m in list_gemini_models()}
+    if model_id in available_ids:
+        return model_id
+    if _is_text_gemini_model(model_id):
+        return model_id
+    raise ValueError(f"Unsupported model: {requested}")
+
+
 def generate_fake_answer(question: str, language: str = "vi") -> dict:
     """Return a static structured answer for the MVP skeleton."""
     fake = FAKE_ANSWERS.get(language, FAKE_ANSWERS["vi"])
     return {"question": question, **fake}
 
 
-def generate_gemini_answer(question: str, language: str = "vi") -> dict:
+def generate_gemini_answer(
+    question: str,
+    language: str = "vi",
+    model: str | None = None,
+) -> dict:
     """Call Gemini and return a structured answer matching AskResponse."""
     api_key = get_gemini_api_key()
     if not api_key:
         raise ValueError("GEMINI_API_KEY is not configured")
 
+    model_id = resolve_model(model)
     prompt = SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS["vi"])
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
-        model=get_gemini_model(),
+        model=model_id,
         contents=f"Question: {question}",
         config=types.GenerateContentConfig(
             system_instruction=prompt,

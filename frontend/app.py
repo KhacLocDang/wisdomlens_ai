@@ -67,6 +67,13 @@ def format_inquiry_label(item: dict) -> str:
     return f"#{item['id']} [{lang}] — {question} ({created_text})"
 
 
+@st.cache_data(ttl=600)
+def load_models() -> list[dict]:
+    response = requests.get(f"{BACKEND_URL}/models", timeout=20)
+    response.raise_for_status()
+    return response.json()
+
+
 st.set_page_config(page_title="WisdomLens AI", page_icon="🧠", layout="wide")
 
 st.title("WisdomLens AI")
@@ -81,11 +88,43 @@ st.markdown(
 tab_ask, tab_history = st.tabs(["Hỏi (Ask)", "Lịch sử (History)"])
 
 with tab_ask:
-    selected_lang_label = st.selectbox(
-        "Ngôn ngữ trả lời / Answer language",
-        list(LANGUAGE_OPTIONS.keys()),
-    )
-    language = LANGUAGE_OPTIONS[selected_lang_label]
+    col_lang, col_model = st.columns(2)
+
+    with col_lang:
+        selected_lang_label = st.selectbox(
+            "Ngôn ngữ trả lời / Answer language",
+            list(LANGUAGE_OPTIONS.keys()),
+        )
+        language = LANGUAGE_OPTIONS[selected_lang_label]
+
+    model_id = None
+    with col_model:
+        try:
+            models = load_models()
+            if models:
+                model_labels = {
+                    f"{m.get('display_name') or m['id']} ({m['id']})": m["id"]
+                    for m in models
+                }
+                # Prefer gemini-2.5-flash as default when present
+                default_index = 0
+                for i, mid in enumerate(model_labels.values()):
+                    if mid == "gemini-2.5-flash":
+                        default_index = i
+                        break
+                selected_model_label = st.selectbox(
+                    "Mô hình / Model",
+                    list(model_labels.keys()),
+                    index=default_index,
+                )
+                model_id = model_labels[selected_model_label]
+            else:
+                st.warning("Không có model nào. / No models available.")
+        except requests.exceptions.RequestException:
+            st.warning(
+                "Không tải được danh sách model — sẽ dùng mặc định từ backend. / "
+                "Could not load models — backend default will be used."
+            )
 
     question = st.text_area(
         "Câu hỏi của bạn / Your question",
@@ -98,11 +137,14 @@ with tab_ask:
             st.warning("Vui lòng nhập câu hỏi. / Please enter a question first.")
         else:
             response = None
+            payload = {"question": question.strip(), "language": language}
+            if model_id:
+                payload["model"] = model_id
             try:
                 response = requests.post(
                     f"{BACKEND_URL}/ask",
-                    json={"question": question.strip(), "language": language},
-                    timeout=60,
+                    json=payload,
+                    timeout=90,
                 )
                 response.raise_for_status()
                 render_answer(response.json())

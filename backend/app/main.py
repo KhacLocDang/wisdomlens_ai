@@ -5,11 +5,16 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.config import get_gemini_model, use_fake_answers
+from app.config import use_fake_answers
 from app.database import check_db_connection, get_db
 from app.repositories.inquiry_repository import get_inquiry, list_inquiries, save_inquiry
-from app.schemas import AskRequest, AskResponse, InquiryDetail, InquirySummary
-from app.services.wisdom_service import generate_fake_answer, generate_gemini_answer
+from app.schemas import AskRequest, AskResponse, InquiryDetail, InquirySummary, ModelInfo
+from app.services.wisdom_service import (
+    generate_fake_answer,
+    generate_gemini_answer,
+    list_gemini_models,
+    resolve_model,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +43,13 @@ def health_check():
     }
 
 
+@app.get("/models", response_model=list[ModelInfo])
+def list_models_endpoint():
+    """List Gemini text models available for this API key (cached)."""
+    models = list_gemini_models()
+    return [ModelInfo(id=m["id"], display_name=m["display_name"]) for m in models]
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
     question = request.question.strip()
@@ -49,9 +61,13 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
         model = None
     else:
         try:
-            answer = generate_gemini_answer(question, language)
+            model = resolve_model(request.model)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+        try:
+            answer = generate_gemini_answer(question, language, model=model)
             source = "gemini"
-            model = get_gemini_model()
         except ValueError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except Exception as exc:

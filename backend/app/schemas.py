@@ -9,6 +9,16 @@ Language = Literal["vi", "en"]
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, examples=["Why are humans afraid of failure?"])
     language: Language = "vi"
+    model: str | None = Field(
+        default=None,
+        examples=["gemini-2.5-flash"],
+        description="Gemini model id from GET /models. Uses GEMINI_MODEL env default if omitted.",
+    )
+
+
+class ModelInfo(BaseModel):
+    id: str
+    display_name: str
 
 
 class GeminiWisdomFields(BaseModel):
