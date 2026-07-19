@@ -1,7 +1,8 @@
 import logging
 from contextlib import asynccontextmanager
+from typing import Optional
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -85,9 +86,13 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
 
 
 @app.get("/inquiries", response_model=list[InquirySummary])
-def list_inquiries_endpoint(limit: int = 20, db: Session = Depends(get_db)):
+def list_inquiries_endpoint(
+    q: Optional[str] = Query(None, description="Search keyword for question or summary"),
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
     limit = min(max(limit, 1), 50)
-    inquiries = list_inquiries(db, limit=limit)
+    inquiries = list_inquiries(db, limit=limit, q=q)
     return [
         InquirySummary(
             id=inquiry.id,

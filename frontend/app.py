@@ -165,16 +165,29 @@ with tab_ask:
                 st.error("Backend trả về JSON không hợp lệ. / Backend returned invalid JSON.")
 
 with tab_history:
+    if "history_query" not in st.session_state:
+        st.session_state.history_query = ""
+
+    search_text = st.text_input(
+        "Tìm câu hỏi đã lưu / Search saved questions",
+        value=st.session_state.history_query,
+    )
+    if st.button("Tìm / Search"):
+        st.session_state.history_query = search_text.strip()
+
+    params = {"limit": 20}
+    if st.session_state.history_query:
+        params["q"] = st.session_state.history_query
+
     response = None
     try:
-        response = requests.get(f"{BACKEND_URL}/inquiries", params={"limit": 20}, timeout=10)
+        response = requests.get(f"{BACKEND_URL}/inquiries", params=params, timeout=10)
         response.raise_for_status()
         inquiries = response.json()
 
         if not inquiries:
             st.info(
-                "Chưa có câu hỏi nào được lưu. Hãy hỏi ở tab **Hỏi (Ask)** trước. / "
-                "No saved questions yet. Ask something in the **Ask** tab first."
+                "Không tìm thấy. / No results."
             )
         else:
             labels = {format_inquiry_label(item): item["id"] for item in inquiries}

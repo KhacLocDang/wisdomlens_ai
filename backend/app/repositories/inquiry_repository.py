@@ -1,6 +1,11 @@
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.inquiry import Inquiry
+
+
+def escape_like(text: str) -> str:
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def save_inquiry(
@@ -30,13 +35,19 @@ def save_inquiry(
     return inquiry
 
 
-def list_inquiries(db: Session, limit: int = 20) -> list[Inquiry]:
-    return (
-        db.query(Inquiry)
-        .order_by(Inquiry.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+def list_inquiries(db: Session, limit: int = 20, q: str | None = None) -> list[Inquiry]:
+    query = db.query(Inquiry)
+    if q is not None:
+        q = q.strip()
+        if len(q) >= 2:
+            term = f"%{escape_like(q)}%"
+            query = query.filter(
+                or_(
+                    Inquiry.question.ilike(term, escape="\\"),
+                    Inquiry.summary.ilike(term, escape="\\"),
+                )
+            )
+    return query.order_by(Inquiry.created_at.desc()).limit(limit).all()
 
 
 def get_inquiry(db: Session, inquiry_id: int) -> Inquiry | None:

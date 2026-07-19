@@ -95,6 +95,12 @@ List saved questions:
 curl "http://localhost:8000/inquiries?limit=20"
 ```
 
+Search saved questions:
+
+```powershell
+curl "http://localhost:8000/inquiries?q=thất bại&limit=20"
+```
+
 Get one saved question by id:
 
 ```powershell
