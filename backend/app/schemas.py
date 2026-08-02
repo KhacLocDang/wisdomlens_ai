@@ -56,3 +56,29 @@ class InquiryDetail(AskResponse):
     created_at: datetime
     source: str
     model: str | None = None
+
+
+class DocumentCreate(BaseModel):
+    title: str = Field(..., min_length=1)
+    category: str = Field(..., min_length=1)
+    author: str | None = None
+    source_url: str | None = None
+    content: str = Field(..., min_length=1)
+    metadata: dict[str, str] | None = None
+
+
+class DocumentSummary(BaseModel):
+    id: int
+    title: str
+    category: str
+    author: str | None = None
+    source_url: str | None = None
+    created_at: datetime
+
+
+class DocumentChunkDetail(BaseModel):
+    id: int
+    document_id: int
+    content: str
+    metadata: dict[str, str] | None = None
+    created_at: datetime

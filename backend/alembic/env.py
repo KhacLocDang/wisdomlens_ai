@@ -6,6 +6,8 @@ from sqlalchemy import engine_from_config, pool
 
 from app.database import Base
 import app.models.inquiry  # noqa: F401 — ensure models are registered
+import app.models.document  # noqa: F401 — ensure models are registered
+import app.models.document_chunk  # noqa: F401 — ensure models are registered
 
 config = context.config
 
