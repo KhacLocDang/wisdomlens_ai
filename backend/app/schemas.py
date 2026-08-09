@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -80,5 +80,23 @@ class DocumentChunkDetail(BaseModel):
     id: int
     document_id: int
     content: str
-    metadata: dict[str, str] | None = None
+    metadata: dict[str, Any] | None = None
+    embedding_model: str | None = None
     created_at: datetime
+
+
+class DocumentChunkRetrieval(DocumentChunkDetail):
+    score: float
+
+
+class EmbeddingRefreshError(BaseModel):
+    chunk_id: int
+    error: str
+
+
+class EmbeddingRefreshResult(BaseModel):
+    refreshed_count: int
+    failed_count: int
+    refreshed_chunk_ids: list[int]
+    errors: list[EmbeddingRefreshError]
+    quota_exhausted: bool = False

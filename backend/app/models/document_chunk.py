@@ -11,4 +11,6 @@ class DocumentChunk(Base):
     document_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
     metadata_json = Column("metadata", JSONB, nullable=False, default=dict)
+    embedding_json = Column("embedding", JSONB, nullable=True)
+    embedding_model = Column("embedding_model", Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

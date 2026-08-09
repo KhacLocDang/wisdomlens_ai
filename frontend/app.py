@@ -99,6 +99,31 @@ def load_document_chunks(document_id: int) -> list[dict]:
     return response.json()
 
 
+def load_retrieve_results(query: str, limit: int) -> list[dict]:
+    response = requests.get(
+        f"{BACKEND_URL}/rag/retrieve",
+        params={"q": query, "limit": limit},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def refresh_missing_embeddings(document_id: int | None = None, limit: int | None = None) -> dict:
+    params = {}
+    if document_id is not None and document_id > 0:
+        params["document_id"] = document_id
+    if limit is not None and limit > 0:
+        params["limit"] = limit
+    response = requests.post(
+        f"{BACKEND_URL}/rag/embeddings/refresh",
+        params=params,
+        timeout=120,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
 st.set_page_config(page_title="WisdomLens AI", page_icon="🧠", layout="wide")
 
 st.title("WisdomLens AI")
@@ -110,7 +135,7 @@ st.markdown(
     "Structured perspectives — not personal advice or therapy."
 )
 
-tab_ask, tab_history, tab_documents = st.tabs(["Hỏi (Ask)", "Lịch sử (History)", "Tài liệu (Documents)"])
+tab_ask, tab_history, tab_retrieve, tab_documents = st.tabs(["Hỏi (Ask)", "Lịch sử (History)", "Semantic Retrieval", "Tài liệu (Documents)"])
 
 with tab_ask:
     col_lang, col_model = st.columns(2)
@@ -263,6 +288,91 @@ with tab_history:
     except requests.exceptions.HTTPError:
         show_backend_error(response, "Không thể tải lịch sử. / Could not load history.")
 
+with tab_retrieve:
+    st.header("Semantic Retrieval / Semantic Search")
+    retrieve_query = st.text_input(
+        "Enter query for semantic retrieval",
+        value="Why do humans suffer?",
+        help="Search the document chunks stored in the RAG database.",
+    )
+    retrieve_limit = st.slider(
+        "Number of results",
+        min_value=1,
+        max_value=20,
+        value=5,
+        step=1,
+    )
+
+    refresh_col1, refresh_col2 = st.columns([1, 2])
+    with refresh_col1:
+        refresh_document_id = st.number_input(
+            "Document ID to refresh (optional)",
+            min_value=0,
+            value=0,
+            step=1,
+            help="Refresh only chunks for a specific document, or leave blank to refresh all missing embeddings.",
+        )
+    with refresh_col2:
+        refresh_limit = st.number_input(
+            "Max chunks to refresh",
+            min_value=0,
+            value=50,
+            step=1,
+            help="Limit the number of missing chunk embeddings refreshed in one request.",
+        )
+
+    if st.button("Refresh missing chunk embeddings", key="refresh_embeddings"):
+        try:
+            refresh_response = refresh_missing_embeddings(
+                document_id=refresh_document_id if refresh_document_id > 0 else None,
+                limit=refresh_limit if refresh_limit > 0 else None,
+            )
+            st.success(
+                f"Refreshed {refresh_response.get('refreshed_count', 0)} chunks, "
+                f"failed {refresh_response.get('failed_count', 0)}."
+            )
+            if refresh_response.get("quota_exhausted"):
+                st.warning(
+                    "Embedding quota exhausted. Please check Gemini billing/quotas and retry later."
+                )
+            if refresh_response.get("errors"):
+                st.error("Some chunks failed to refresh. Check backend logs.")
+        except requests.exceptions.RequestException as exc:
+            st.error(f"Could not refresh embeddings: {exc}")
+        except ValueError:
+            st.error("Backend returned invalid JSON during embedding refresh.")
+
+    if st.button("Search chunks", key="retrieve_search"):
+        if not retrieve_query.strip():
+            st.warning("Please enter a query text for retrieval.")
+        else:
+            retrieve_response = None
+            try:
+                results = load_retrieve_results(retrieve_query.strip(), retrieve_limit)
+                if not results:
+                    st.info("No matching chunks found.")
+                else:
+                    st.success(f"Found {len(results)} matching chunks.")
+                    for chunk in results:
+                        score = chunk.get("score")
+                        metadata = chunk.get("metadata", {})
+                        embedding_model = chunk.get("embedding_model")
+                        label = f"Chunk #{chunk.get('id')} - Document #{chunk.get('document_id')}"
+                        with st.expander(
+                            f"{label} — score: {score:.4f}"
+                            if isinstance(score, (int, float))
+                            else label
+                        ):
+                            st.write(chunk.get("content", ""))
+                            if embedding_model:
+                                st.caption(f"Embedding model: {embedding_model}")
+                            st.markdown("**Metadata**")
+                            st.json(metadata)
+            except requests.exceptions.RequestException as exc:
+                st.error(f"Could not retrieve chunks: {exc}")
+            except ValueError:
+                st.error("Backend returned invalid JSON during retrieval.")
+
 with tab_documents:
     st.header("Quản lý tài liệu RAG / RAG Documents")
 
@@ -299,7 +409,6 @@ with tab_documents:
                     document = response.json()
                     st.success(f"Tạo thành công tài liệu #{document.get('id')}.")
                     st.json(document)
-                    st.experimental_rerun()
                 except requests.exceptions.ConnectionError:
                     st.error(
                         "Không kết nối được backend. Hãy chạy Docker Compose. / "
@@ -347,7 +456,6 @@ with tab_documents:
                     document = response.json()
                     st.success(f"Tải lên và tạo tài liệu thành công #{document.get('id')}.")
                     st.json(document)
-                    st.experimental_rerun()
                 except requests.exceptions.ConnectionError:
                     st.error(
                         "Không kết nối được backend. Hãy chạy Docker Compose. / "
@@ -386,6 +494,9 @@ with tab_documents:
                 for chunk in chunks:
                     with st.expander(f"Chunk #{chunk.get('id')} - Index {chunk.get('metadata', {}).get('chunk_index', '?')}"):
                         st.write(chunk.get("content", ""))
+                        embedding_model = chunk.get("embedding_model")
+                        if embedding_model:
+                            st.caption(f"Embedding model: {embedding_model}")
                         st.markdown("**Metadata**")
                         st.json(chunk.get("metadata", {}))
             except requests.exceptions.RequestException as exc:

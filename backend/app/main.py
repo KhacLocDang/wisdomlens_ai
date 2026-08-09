@@ -6,21 +6,29 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFi
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.config import use_fake_answers
+from app.config import get_embedding_model, use_fake_answers
 from app.database import check_db_connection, get_db
 from app.repositories.inquiry_repository import get_inquiry, list_inquiries, save_inquiry
 from app.repositories.document_repository import get_document, list_documents
-from app.repositories.chunk_repository import get_document_chunks_for_document
+from app.repositories.chunk_repository import (
+    get_document_chunks_for_document,
+    get_document_chunks_without_embeddings,
+    update_document_chunk_embedding,
+)
 from app.rag.document_loader import extract_text_from_bytes, ingest_document
+from app.rag.embedding import generate_embedding
+from app.rag.retriever import retrieve_similar_chunks
 from app.schemas import (
     AskRequest,
     AskResponse,
     DocumentChunkDetail,
+    DocumentChunkRetrieval,
     DocumentCreate,
     DocumentSummary,
     InquiryDetail,
     InquirySummary,
     ModelInfo,
+    EmbeddingRefreshResult,
 )
 from app.services.wisdom_service import (
     generate_fake_answer,
@@ -192,10 +200,101 @@ def list_document_chunks_endpoint(document_id: int, db: Session = Depends(get_db
             document_id=chunk.document_id,
             content=chunk.content,
             metadata=chunk.metadata_json,
+            embedding_model=chunk.embedding_model,
             created_at=chunk.created_at,
         )
         for chunk in chunks
     ]
+
+
+@app.get("/rag/retrieve", response_model=list[DocumentChunkRetrieval])
+def retrieve_document_chunks_endpoint(
+    q: str = Query(..., min_length=1, description="Query text for semantic retrieval"),
+    limit: int = Query(5, ge=1, le=20),
+    db: Session = Depends(get_db),
+):
+    try:
+        chunks = retrieve_similar_chunks(db, query=q, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Embedding or retrieval failed: {exc}") from exc
+
+    return [
+        DocumentChunkRetrieval(
+            id=chunk.id,
+            document_id=chunk.document_id,
+            content=chunk.content,
+            metadata=chunk.metadata_json,
+            score=chunk.score,
+            embedding_model=chunk.embedding_model,
+            created_at=chunk.created_at,
+        )
+        for chunk in chunks
+    ]
+
+
+@app.post(
+    "/rag/embeddings/refresh",
+    response_model=EmbeddingRefreshResult,
+)
+def refresh_embeddings_endpoint(
+    document_id: int | None = Query(
+        None,
+        description="Optional document id to backfill embeddings for.",
+    ),
+    limit: int | None = Query(
+        None,
+        ge=1,
+        le=500,
+        description="Maximum number of missing chunk embeddings to refresh.",
+    ),
+    db: Session = Depends(get_db),
+):
+    try:
+        chunks = get_document_chunks_without_embeddings(db, limit=limit, document_id=document_id)
+        if not chunks:
+            return {
+                "refreshed_count": 0,
+                "failed_count": 0,
+                "refreshed_chunk_ids": [],
+                "errors": [],
+            }
+
+        embedding_model = get_embedding_model()
+        refreshed_chunk_ids: list[int] = []
+        errors: list[dict[str, str]] = []
+        quota_exhausted = False
+
+        for chunk in chunks:
+            try:
+                embedding = generate_embedding(chunk.content)
+                update_document_chunk_embedding(db, chunk.id, embedding, embedding_model)
+                refreshed_chunk_ids.append(chunk.id)
+            except Exception as exc:
+                error_message = str(exc)
+                logger.exception("Failed to refresh embedding for chunk %s", chunk.id)
+                errors.append({"chunk_id": chunk.id, "error": error_message})
+
+                if "RESOURCE_EXHAUSTED" in error_message or "429" in error_message or "quota" in error_message.lower():
+                    quota_exhausted = True
+                    break
+
+        return {
+            "refreshed_count": len(refreshed_chunk_ids),
+            "failed_count": len(errors),
+            "refreshed_chunk_ids": refreshed_chunk_ids,
+            "errors": errors,
+            "quota_exhausted": quota_exhausted,
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Unexpected error during embedding refresh")
+        raise HTTPException(
+            status_code=502,
+            detail=f"Embedding refresh failed: {exc}",
+        ) from exc
 
 
 @app.get("/inquiries", response_model=list[InquirySummary])

@@ -3,7 +3,16 @@ from sqlalchemy.orm import Session
 from app.models.document import Document
 
 
-def create_document(db: Session, *, title: str, category: str, author: str | None = None, source_url: str | None = None, metadata: dict | None = None) -> Document:
+def create_document(
+    db: Session,
+    *,
+    title: str,
+    category: str,
+    author: str | None = None,
+    source_url: str | None = None,
+    metadata: dict | None = None,
+    commit: bool = True,
+) -> Document:
     document = Document(
         title=title,
         category=category,
@@ -12,8 +21,12 @@ def create_document(db: Session, *, title: str, category: str, author: str | Non
         metadata_json=metadata or {},
     )
     db.add(document)
-    db.commit()
-    db.refresh(document)
+    if commit:
+        db.commit()
+        db.refresh(document)
+    else:
+        db.flush()
+        db.refresh(document)
     return document
 
 

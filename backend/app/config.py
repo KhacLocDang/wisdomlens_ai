@@ -25,6 +25,14 @@ def get_gemini_model() -> str:
     return normalize_model_id(os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
 
 
+def get_embedding_api_key() -> str | None:
+    return os.getenv("EMBEDDING_API_KEY") or os.getenv("GEMINI_API_KEY") or None
+
+
+def get_embedding_model() -> str:
+    return normalize_model_id(os.getenv("EMBEDDING_MODEL", "gemini-embedding-2-preview"))
+
+
 def normalize_model_id(model_id: str) -> str:
     """Strip 'models/' prefix so IDs match generate_content."""
     name = (model_id or "").strip()
