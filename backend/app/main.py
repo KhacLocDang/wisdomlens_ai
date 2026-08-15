@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFi
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.config import get_embedding_model, use_fake_answers
+from app.config import get_embedding_model, use_fake_answers, use_rag
 from app.database import check_db_connection, get_db
 from app.repositories.inquiry_repository import get_inquiry, list_inquiries, save_inquiry
 from app.repositories.document_repository import get_document, list_documents
@@ -18,6 +18,7 @@ from app.repositories.chunk_repository import (
 from app.rag.document_loader import extract_text_from_bytes, ingest_document
 from app.rag.embedding import generate_embedding
 from app.rag.retriever import retrieve_similar_chunks
+from app.services.rag_service import build_rag_context
 from app.schemas import (
     AskRequest,
     AskResponse,
@@ -75,11 +76,13 @@ def list_models_endpoint():
 def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
     question = request.question.strip()
     language = request.language
+    rag_enabled = request.use_rag if request.use_rag is not None else use_rag()
 
     if use_fake_answers():
         answer = generate_fake_answer(question, language)
         source = "fake"
         model = None
+        rag_sources: list[dict] = []
     else:
         try:
             model = resolve_model(request.model)
@@ -87,8 +90,17 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
         try:
-            answer = generate_gemini_answer(question, language, model=model)
+            rag_context = None
+            if rag_enabled:
+                try:
+                    rag_context = build_rag_context(db, query=question)
+                except Exception:
+                    logger.exception("RAG retrieval failed; falling back to non-RAG ask flow")
+                    rag_context = None
+
+            answer = generate_gemini_answer(question, language, model=model, rag_context=rag_context)
             source = "gemini"
+            rag_sources = answer.get("rag_sources") or []
         except ValueError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except Exception as exc:
@@ -98,7 +110,7 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
             ) from exc
 
     try:
-        save_inquiry(db, answer, language=language, source=source, model=model)
+        save_inquiry(db, answer, language=language, source=source, model=model, rag_sources=rag_sources)
     except Exception:
         logger.exception("Failed to save inquiry to database")
 
@@ -333,6 +345,7 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
         similarities=inquiry.similarities,
         differences=inquiry.differences,
         references=inquiry.references or [],
+        rag_sources=inquiry.rag_sources or [],
         language=inquiry.language,
         created_at=inquiry.created_at,
         source=inquiry.source,

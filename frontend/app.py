@@ -12,32 +12,68 @@ LANGUAGE_OPTIONS = {
 }
 
 
+def render_rag_sources(data: dict) -> None:
+    rag_sources = data.get("rag_sources") or []
+    if not rag_sources:
+        return
+
+    st.subheader("Nguồn RAG")
+    for source in rag_sources:
+        chunk_id = source.get("chunk_id", "?")
+        document_id = source.get("document_id", "?")
+        title = source.get("title") or "Unknown"
+        category = source.get("category") or "Unknown"
+        chunk_index = source.get("chunk_index")
+        score = source.get("score")
+
+        label_parts = [f"Chunk #{chunk_id}", f"Document #{document_id}", title]
+        if isinstance(chunk_index, int):
+            label_parts.append(f"Index {chunk_index}")
+        if isinstance(score, (int, float)):
+            label_parts.append(f"Score {score:.4f}")
+
+        with st.expander(" / ".join(label_parts), expanded=False):
+            st.write(f"Category: {category}")
+            if source.get("author"):
+                st.write(f"Author: {source['author']}")
+            if source.get("source_url"):
+                st.write(f"Source URL: {source['source_url']}")
+            if source.get("embedding_model"):
+                st.caption(f"Embedding model: {source['embedding_model']}")
+            metadata = source.get("metadata")
+            if metadata:
+                st.markdown("**Metadata**")
+                st.json(metadata)
+
+
 def render_answer(data: dict) -> None:
-    st.subheader("Tóm tắt / Summary")
+    st.subheader("Summary")
     st.write(data.get("summary", ""))
 
-    st.subheader("Phật giáo / Buddhism")
+    st.subheader("Buddhism")
     st.write(data.get("buddhism", ""))
 
-    st.subheader("Triết học phương Tây / Western Philosophy")
+    st.subheader("Western Philosophy")
     st.write(data.get("western_philosophy", ""))
 
-    st.subheader("Tâm lý học / Psychology")
+    st.subheader("Psychology")
     st.write(data.get("psychology", ""))
 
-    st.subheader("Điểm tương đồng / Similarities")
+    st.subheader("Similarities")
     st.write(data.get("similarities", ""))
 
-    st.subheader("Điểm khác biệt / Differences")
+    st.subheader("Differences")
     st.write(data.get("differences", ""))
 
-    st.subheader("Tài liệu tham khảo / References")
+    st.subheader("References")
     refs = data.get("references") or []
     if refs:
         for ref in refs:
             st.markdown(f"- {ref}")
     else:
-        st.write("Chưa có tài liệu tham khảo. / No references yet.")
+        st.write("No references yet.")
+
+    render_rag_sources(data)
 
 
 def show_backend_error(response: requests.Response | None, fallback: str) -> None:
@@ -46,7 +82,7 @@ def show_backend_error(response: requests.Response | None, fallback: str) -> Non
             detail = response.json().get("detail", response.text)
         except ValueError:
             detail = response.text or fallback
-        st.error(f"Lỗi backend / Backend error ({response.status_code}): {detail}")
+        st.error(f"Backend error ({response.status_code}): {detail}")
     else:
         st.error(fallback)
 
@@ -64,7 +100,7 @@ def format_inquiry_label(item: dict) -> str:
         question = question[:77] + "..."
 
     lang = item.get("language", "vi").upper()
-    return f"#{item['id']} [{lang}] — {question} ({created_text})"
+    return f"#{item['id']} [{lang}] - {question} ({created_text})"
 
 
 def format_document_label(item: dict) -> str:
@@ -76,7 +112,7 @@ def format_document_label(item: dict) -> str:
         created_text = created_raw[:16]
 
     title = item.get("title", "<No title>")
-    return f"#{item['id']} — {title} ({created_text})"
+    return f"#{item['id']} - {title} ({created_text})"
 
 
 @st.cache_data(ttl=600)
@@ -128,21 +164,20 @@ st.set_page_config(page_title="WisdomLens AI", page_icon="🧠", layout="wide")
 
 st.title("WisdomLens AI")
 st.markdown(
-    "Khám phá câu hỏi cuộc sống qua **Phật giáo**, **Triết học phương Tây** "
-    "và **Tâm lý học**. / Explore life questions through **Buddhism**, "
-    "**Western philosophy**, and **psychology**. "
-    "Đây là góc nhìn có cấu trúc — không phải tư vấn cá nhân hay trị liệu. / "
-    "Structured perspectives — not personal advice or therapy."
+    "Khám phá câu hỏi cuộc sống qua Phật giáo, Triết học phương Tây và Tâm lý học. "
+    "Góc nhìn có cấu trúc, không phải tư vấn cá nhân hay trị liệu."
 )
 
-tab_ask, tab_history, tab_retrieve, tab_documents = st.tabs(["Hỏi (Ask)", "Lịch sử (History)", "Semantic Retrieval", "Tài liệu (Documents)"])
+tab_ask, tab_history, tab_retrieve, tab_documents = st.tabs(
+    ["Hỏi", "Lịch sử", "Semantic Retrieval", "Tài liệu"]
+)
 
 with tab_ask:
     col_lang, col_model = st.columns(2)
 
     with col_lang:
         selected_lang_label = st.selectbox(
-            "Ngôn ngữ trả lời / Answer language",
+            "Ngôn ngữ trả lời",
             list(LANGUAGE_OPTIONS.keys()),
         )
         language = LANGUAGE_OPTIONS[selected_lang_label]
@@ -156,73 +191,76 @@ with tab_ask:
                     f"{m.get('display_name') or m['id']} ({m['id']})": m["id"]
                     for m in models
                 }
-                # Prefer gemini-2.5-flash as default when present
                 default_index = 0
                 for i, mid in enumerate(model_labels.values()):
                     if mid == "gemini-2.5-flash":
                         default_index = i
                         break
                 selected_model_label = st.selectbox(
-                    "Mô hình / Model",
+                    "Model",
                     list(model_labels.keys()),
                     index=default_index,
                 )
                 model_id = model_labels[selected_model_label]
             else:
-                st.warning("Không có model nào. / No models available.")
+                st.warning("No models available.")
         except requests.exceptions.RequestException:
-            st.warning(
-                "Không tải được danh sách model — sẽ dùng mặc định từ backend. / "
-                "Could not load models — backend default will be used."
-            )
+            st.warning("Could not load models, backend default will be used.")
+
+    rag_mode_options = [
+        ("Theo cấu hình server", None),
+        ("Dùng RAG", True),
+        ("Không dùng RAG", False),
+    ]
+    rag_mode_label = st.selectbox(
+        "Ngữ cảnh tài liệu",
+        [label for label, _ in rag_mode_options],
+        help="Theo cấu hình server sẽ dùng biến USE_RAG trong .env. Hai lựa chọn còn lại sẽ ghi đè cho riêng câu hỏi này.",
+    )
+    rag_mode = dict(rag_mode_options)[rag_mode_label]
 
     question = st.text_area(
-        "Câu hỏi của bạn / Your question",
-        placeholder="Vì sao con người sợ thất bại? / Why are humans afraid of failure?",
+        "Câu hỏi",
+        placeholder="Vì sao con người sợ thất bại?",
         height=120,
     )
 
-    if st.button("Hỏi WisdomLens / Ask WisdomLens", type="primary"):
+    if st.button("Hỏi WisdomLens", type="primary"):
         if not question.strip():
-            st.warning("Vui lòng nhập câu hỏi. / Please enter a question first.")
+            st.warning("Please enter a question first.")
         else:
             response = None
             payload = {"question": question.strip(), "language": language}
+            if rag_mode is not None:
+                payload["use_rag"] = rag_mode
             if model_id:
                 payload["model"] = model_id
             try:
                 response = requests.post(
                     f"{BACKEND_URL}/ask",
                     json=payload,
-                    timeout=90,
+                    timeout=120,
                 )
                 response.raise_for_status()
                 render_answer(response.json())
             except requests.exceptions.ConnectionError:
-                st.error(
-                    "Không kết nối được backend. Hãy chạy Docker Compose. / "
-                    "Could not reach the backend. "
-                    f"Make sure FastAPI is running at `{BACKEND_URL}`."
-                )
+                st.error(f"Could not reach the backend. Make sure FastAPI is running at {BACKEND_URL}.")
             except requests.exceptions.Timeout:
-                st.error(
-                    "Backend phản hồi quá lâu. Vui lòng thử lại. / "
-                    "The backend took too long to respond. Please try again."
-                )
+                st.error("The backend took too long to respond. Please try again.")
             except requests.exceptions.HTTPError:
-                show_backend_error(response, "Không thể lấy câu trả lời. / Could not get an answer.")
+                show_backend_error(response, "Could not get an answer.")
             except ValueError:
-                st.error("Backend trả về JSON không hợp lệ. / Backend returned invalid JSON.")
+                st.error("Backend returned invalid JSON.")
 
 with tab_history:
     if "history_query" not in st.session_state:
         st.session_state.history_query = ""
 
     search_text = st.text_input(
-        "Tìm câu hỏi đã lưu / Search saved questions",
+        "Tìm câu hỏi đã lưu",
         value=st.session_state.history_query,
     )
-    if st.button("Tìm / Search"):
+    if st.button("Tìm lịch sử"):
         st.session_state.history_query = search_text.strip()
 
     params = {"limit": 20}
@@ -236,67 +274,51 @@ with tab_history:
         inquiries = response.json()
 
         if not inquiries:
-            st.info(
-                "Không tìm thấy. / No results."
-            )
+            st.info("No results.")
         else:
             labels = {format_inquiry_label(item): item["id"] for item in inquiries}
-            selected_label = st.selectbox(
-                "Chọn câu hỏi đã lưu / Select a saved question",
-                list(labels.keys()),
-            )
+            selected_label = st.selectbox("Chọn câu hỏi đã lưu", list(labels.keys()))
             inquiry_id = labels[selected_label]
 
             detail_response = None
             try:
-                detail_response = requests.get(
-                    f"{BACKEND_URL}/inquiries/{inquiry_id}",
-                    timeout=10,
-                )
+                detail_response = requests.get(f"{BACKEND_URL}/inquiries/{inquiry_id}", timeout=10)
                 detail_response.raise_for_status()
             except requests.exceptions.HTTPError:
-                show_backend_error(detail_response, "Không tải được chi tiết. / Could not load detail.")
+                show_backend_error(detail_response, "Could not load detail.")
                 st.stop()
 
             detail = detail_response.json()
-
-            st.markdown(f"**Câu hỏi / Question:** {detail.get('question', '')}")
-            meta_parts = [f"Nguồn / Source: {detail.get('source', '')}"]
+            st.markdown(f"**Question:** {detail.get('question', '')}")
+            meta_parts = [f"Source: {detail.get('source', '')}"]
             lang_code = detail.get("language", "")
             if lang_code:
                 lang_display = "Tiếng Việt" if lang_code == "vi" else "English"
-                meta_parts.append(f"Ngôn ngữ / Language: {lang_display}")
+                meta_parts.append(f"Language: {lang_display}")
             if detail.get("model"):
                 meta_parts.append(f"Model: {detail['model']}")
             if detail.get("created_at"):
-                meta_parts.append(f"Thời gian / Time: {detail['created_at']}")
+                meta_parts.append(f"Time: {detail['created_at']}")
             st.caption(" | ".join(meta_parts))
 
             render_answer(detail)
 
     except requests.exceptions.ConnectionError:
-        st.error(
-            "Không kết nối được backend. Hãy chạy Docker Compose. / "
-            "Could not reach the backend. "
-            f"Make sure FastAPI is running at `{BACKEND_URL}`."
-        )
+        st.error(f"Could not reach the backend. Make sure FastAPI is running at {BACKEND_URL}.")
     except requests.exceptions.Timeout:
-        st.error(
-            "Backend phản hồi quá lâu. Vui lòng thử lại. / "
-            "The backend took too long to respond. Please try again."
-        )
+        st.error("The backend took too long to respond. Please try again.")
     except requests.exceptions.HTTPError:
-        show_backend_error(response, "Không thể tải lịch sử. / Could not load history.")
+        show_backend_error(response, "Could not load history.")
 
 with tab_retrieve:
-    st.header("Semantic Retrieval / Semantic Search")
+    st.header("Semantic Retrieval")
     retrieve_query = st.text_input(
-        "Enter query for semantic retrieval",
+        "Nhập truy vấn để tìm chunk",
         value="Why do humans suffer?",
         help="Search the document chunks stored in the RAG database.",
     )
     retrieve_limit = st.slider(
-        "Number of results",
+        "Số kết quả",
         min_value=1,
         max_value=20,
         value=5,
@@ -306,7 +328,7 @@ with tab_retrieve:
     refresh_col1, refresh_col2 = st.columns([1, 2])
     with refresh_col1:
         refresh_document_id = st.number_input(
-            "Document ID to refresh (optional)",
+            "Document ID để refresh (không bắt buộc)",
             min_value=0,
             value=0,
             step=1,
@@ -314,7 +336,7 @@ with tab_retrieve:
         )
     with refresh_col2:
         refresh_limit = st.number_input(
-            "Max chunks to refresh",
+            "Số chunk tối đa cần refresh",
             min_value=0,
             value=50,
             step=1,
@@ -332,9 +354,7 @@ with tab_retrieve:
                 f"failed {refresh_response.get('failed_count', 0)}."
             )
             if refresh_response.get("quota_exhausted"):
-                st.warning(
-                    "Embedding quota exhausted. Please check Gemini billing/quotas and retry later."
-                )
+                st.warning("Embedding quota exhausted. Please check Gemini billing/quotas and retry later.")
             if refresh_response.get("errors"):
                 st.error("Some chunks failed to refresh. Check backend logs.")
         except requests.exceptions.RequestException as exc:
@@ -346,7 +366,6 @@ with tab_retrieve:
         if not retrieve_query.strip():
             st.warning("Please enter a query text for retrieval.")
         else:
-            retrieve_response = None
             try:
                 results = load_retrieve_results(retrieve_query.strip(), retrieve_limit)
                 if not results:
@@ -359,7 +378,7 @@ with tab_retrieve:
                         embedding_model = chunk.get("embedding_model")
                         label = f"Chunk #{chunk.get('id')} - Document #{chunk.get('document_id')}"
                         with st.expander(
-                            f"{label} — score: {score:.4f}"
+                            f"{label} - score: {score:.4f}"
                             if isinstance(score, (int, float))
                             else label
                         ):
@@ -374,22 +393,22 @@ with tab_retrieve:
                 st.error("Backend returned invalid JSON during retrieval.")
 
 with tab_documents:
-    st.header("Quản lý tài liệu RAG / RAG Documents")
+    st.header("Tài liệu RAG")
 
-    with st.expander("Thêm tài liệu mới / Add new document", expanded=True):
-        title = st.text_input("Tiêu đề / Title", value="")
-        category = st.text_input("Danh mục / Category", value="Buddhism")
-        author = st.text_input("Tác giả / Author", value="")
-        source_url = st.text_input("Nguồn / Source URL", value="")
+    with st.expander("Thêm tài liệu", expanded=True):
+        title = st.text_input("Tiêu đề", value="")
+        category = st.text_input("Danh mục", value="Buddhism")
+        author = st.text_input("Tác giả", value="")
+        source_url = st.text_input("Source URL", value="")
         content = st.text_area(
-            "Nội dung / Content",
-            value="Đây là nội dung test. Nó sẽ được chia thành nhiều chunk.",
+            "Nội dung",
+            value="This is test content. It will be split into chunks.",
             height=180,
         )
 
-        if st.button("Tạo tài liệu / Create document"):
+        if st.button("Tạo tài liệu"):
             if not title.strip() or not category.strip() or not content.strip():
-                st.warning("Vui lòng nhập đầy đủ tiêu đề, danh mục và nội dung. / Please enter title, category, and content.")
+                st.warning("Please enter title, category, and content.")
             else:
                 payload = {
                     "title": title.strip(),
@@ -400,41 +419,30 @@ with tab_documents:
                 }
                 response = None
                 try:
-                    response = requests.post(
-                        f"{BACKEND_URL}/rag/documents",
-                        json=payload,
-                        timeout=30,
-                    )
+                    response = requests.post(f"{BACKEND_URL}/rag/documents", json=payload, timeout=30)
                     response.raise_for_status()
                     document = response.json()
-                    st.success(f"Tạo thành công tài liệu #{document.get('id')}.")
+                    st.success(f"Created document #{document.get('id')}.")
                     st.json(document)
                 except requests.exceptions.ConnectionError:
-                    st.error(
-                        "Không kết nối được backend. Hãy chạy Docker Compose. / "
-                        "Could not reach the backend. "
-                        f"Make sure FastAPI is running at `{BACKEND_URL}`."
-                    )
+                    st.error(f"Could not reach the backend. Make sure FastAPI is running at {BACKEND_URL}.")
                 except requests.exceptions.Timeout:
-                    st.error(
-                        "Backend phản hồi quá lâu. Vui lòng thử lại. / "
-                        "The backend took too long to respond. Please try again."
-                    )
+                    st.error("The backend took too long to respond. Please try again.")
                 except requests.exceptions.HTTPError:
-                    show_backend_error(response, "Không thể tạo tài liệu. / Could not create document.")
+                    show_backend_error(response, "Could not create document.")
                 except ValueError:
-                    st.error("Backend trả về JSON không hợp lệ. / Backend returned invalid JSON.")
+                    st.error("Backend returned invalid JSON.")
 
-    with st.expander("Tải lên file PDF/TXT / Upload PDF/TXT", expanded=False):
-        upload_title = st.text_input("Tiêu đề / Title (file)", value="", key="upload_title")
-        upload_category = st.text_input("Danh mục / Category (file)", value="Buddhism", key="upload_category")
-        upload_author = st.text_input("Tác giả / Author (file)", value="", key="upload_author")
-        upload_source_url = st.text_input("Nguồn / Source URL (file)", value="", key="upload_source_url")
-        upload_file = st.file_uploader("Chọn file PDF hoặc TXT / Choose a PDF or TXT file", type=["pdf", "txt"], key="upload_file")
+    with st.expander("Upload PDF/TXT", expanded=False):
+        upload_title = st.text_input("Title (file)", value="", key="upload_title")
+        upload_category = st.text_input("Category (file)", value="Buddhism", key="upload_category")
+        upload_author = st.text_input("Author (file)", value="", key="upload_author")
+        upload_source_url = st.text_input("Source URL (file)", value="", key="upload_source_url")
+        upload_file = st.file_uploader("Choose a PDF or TXT file", type=["pdf", "txt"], key="upload_file")
 
-        if st.button("Tải lên và tạo tài liệu / Upload and create document", key="upload_button"):
+        if st.button("Upload and create document", key="upload_button"):
             if not upload_title.strip() or not upload_category.strip() or upload_file is None:
-                st.warning("Vui lòng nhập tiêu đề, danh mục và chọn file. / Please enter title, category, and choose a file.")
+                st.warning("Please enter title, category, and choose a file.")
             else:
                 try:
                     files = {
@@ -454,45 +462,37 @@ with tab_documents:
                     )
                     response.raise_for_status()
                     document = response.json()
-                    st.success(f"Tải lên và tạo tài liệu thành công #{document.get('id')}.")
+                    st.success(f"Uploaded and created document #{document.get('id')}.")
                     st.json(document)
                 except requests.exceptions.ConnectionError:
-                    st.error(
-                        "Không kết nối được backend. Hãy chạy Docker Compose. / "
-                        "Could not reach the backend. "
-                        f"Make sure FastAPI is running at `{BACKEND_URL}`."
-                    )
+                    st.error(f"Could not reach the backend. Make sure FastAPI is running at {BACKEND_URL}.")
                 except requests.exceptions.Timeout:
-                    st.error(
-                        "Backend phản hồi quá lâu. Vui lòng thử lại. / "
-                        "The backend took too long to respond. Please try again."
-                    )
+                    st.error("The backend took too long to respond. Please try again.")
                 except requests.exceptions.HTTPError:
-                    show_backend_error(response, "Không thể tải lên file. / Could not upload the file.")
+                    show_backend_error(response, "Could not upload the file.")
                 except ValueError:
-                    st.error("Backend trả về JSON không hợp lệ. / Backend returned invalid JSON.")
+                    st.error("Backend returned invalid JSON.")
 
     st.write("---")
-    st.subheader("Danh sách tài liệu / Document list")
+    st.subheader("Danh sách tài liệu")
 
     try:
         documents = load_documents()
         if not documents:
-            st.info("Chưa có tài liệu nào. / No documents yet.")
+            st.info("No documents yet.")
         else:
             labels = {format_document_label(item): item["id"] for item in documents}
-            selected_label = st.selectbox(
-                "Chọn tài liệu / Select a document",
-                list(labels.keys()),
-            )
+            selected_label = st.selectbox("Chọn tài liệu", list(labels.keys()))
             document_id = labels[selected_label]
 
             try:
                 chunks = load_document_chunks(document_id)
-                st.markdown(f"**Tài liệu:** {selected_label}")
-                st.write(f"Số chunk: {len(chunks)}")
+                st.markdown(f"**Document:** {selected_label}")
+                st.write(f"Chunk count: {len(chunks)}")
                 for chunk in chunks:
-                    with st.expander(f"Chunk #{chunk.get('id')} - Index {chunk.get('metadata', {}).get('chunk_index', '?')}"):
+                    with st.expander(
+                        f"Chunk #{chunk.get('id')} - Index {chunk.get('metadata', {}).get('chunk_index', '?')}"
+                    ):
                         st.write(chunk.get("content", ""))
                         embedding_model = chunk.get("embedding_model")
                         if embedding_model:
@@ -500,9 +500,6 @@ with tab_documents:
                         st.markdown("**Metadata**")
                         st.json(chunk.get("metadata", {}))
             except requests.exceptions.RequestException as exc:
-                st.error(f"Không tải được chunk của tài liệu: {exc}")
+                st.error(f"Could not load document chunks: {exc}")
     except requests.exceptions.RequestException:
-        st.error(
-            "Không kết nối được backend để tải danh sách tài liệu. / "
-            "Could not reach the backend to load documents."
-        )
+        st.error(f"Could not reach the backend to load documents at {BACKEND_URL}.")

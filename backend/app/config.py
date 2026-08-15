@@ -9,6 +9,18 @@ def use_fake_answers() -> bool:
     return os.getenv("USE_FAKE_ANSWERS", "false").lower() in ("1", "true", "yes")
 
 
+def use_rag() -> bool:
+    return os.getenv("USE_RAG", "false").lower() in ("1", "true", "yes")
+
+
+def get_rag_min_score() -> float:
+    """Minimum cosine score a chunk needs before it is used as RAG context."""
+    try:
+        return float(os.getenv("RAG_MIN_SCORE", "0.35"))
+    except ValueError:
+        return 0.35
+
+
 def get_gemini_api_key() -> str | None:
     return os.getenv("GEMINI_API_KEY") or None
 

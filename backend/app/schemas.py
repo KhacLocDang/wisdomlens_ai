@@ -9,6 +9,10 @@ Language = Literal["vi", "en"]
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, examples=["Why are humans afraid of failure?"])
     language: Language = "vi"
+    use_rag: bool | None = Field(
+        default=None,
+        description="Override the USE_RAG env flag for this request.",
+    )
     model: str | None = Field(
         default=None,
         examples=["gemini-2.5-flash"],
@@ -31,6 +35,20 @@ class GeminiWisdomFields(BaseModel):
     references: list[str]
 
 
+class RagSource(BaseModel):
+    rank: int
+    chunk_id: int
+    document_id: int
+    score: float
+    title: str | None = None
+    category: str | None = None
+    author: str | None = None
+    source_url: str | None = None
+    chunk_index: int | None = None
+    embedding_model: str | None = None
+    metadata: dict[str, Any] | None = None
+
+
 class AskResponse(BaseModel):
     question: str
     summary: str
@@ -40,6 +58,7 @@ class AskResponse(BaseModel):
     similarities: str
     differences: str
     references: list[str]
+    rag_sources: list[RagSource] = Field(default_factory=list)
 
 
 class InquirySummary(BaseModel):

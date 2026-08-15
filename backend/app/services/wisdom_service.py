@@ -60,6 +60,14 @@ SYSTEM_PROMPTS = {
     ),
 }
 
+RAG_INSTRUCTIONS = (
+    "RAG mode:\n"
+    "- Use the retrieved context as the primary source of evidence.\n"
+    "- If the context is missing or conflicts, say so clearly.\n"
+    "- Do not invent facts that are not supported by the retrieved context.\n"
+    "- If no relevant chunks were retrieved, state that explicitly and answer cautiously using general WisdomLens knowledge."
+)
+
 FAKE_ANSWERS = {
     "en": {
         "summary": (
@@ -221,6 +229,7 @@ def generate_gemini_answer(
     question: str,
     language: str = "vi",
     model: str | None = None,
+    rag_context: dict | None = None,
 ) -> dict:
     """Call Gemini and return a structured answer matching AskResponse."""
     api_key = get_gemini_api_key()
@@ -229,11 +238,26 @@ def generate_gemini_answer(
 
     model_id = resolve_model(model)
     prompt = SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS["vi"])
+    contents = f"Question: {question}"
+
+    rag_sources = []
+    if rag_context is not None:
+        prompt = f"{prompt}\n\n{RAG_INSTRUCTIONS}"
+        rag_sources = rag_context.get("sources") or []
+        retrieved_context = (rag_context.get("context") or "").strip()
+        if retrieved_context:
+            contents = f"Retrieved context:\n{retrieved_context}\n\nUser question: {question}"
+        else:
+            contents = (
+                "Retrieved context: (none)\n\n"
+                "No relevant document chunks were found for this question.\n\n"
+                f"User question: {question}"
+            )
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(
         model=model_id,
-        contents=f"Question: {question}",
+        contents=contents,
         config=types.GenerateContentConfig(
             system_instruction=prompt,
             response_mime_type="application/json",
@@ -244,4 +268,4 @@ def generate_gemini_answer(
         raise ValueError("Gemini returned an empty response")
 
     fields = GeminiWisdomFields.model_validate_json(response.text)
-    return AskResponse(question=question, **fields.model_dump()).model_dump()
+    return AskResponse(question=question, rag_sources=rag_sources, **fields.model_dump()).model_dump()

@@ -16,6 +16,7 @@ class Inquiry(Base):
     similarities = Column(Text, nullable=False)
     differences = Column(Text, nullable=False)
     references = Column(JSONB, nullable=False, default=list)
+    rag_sources = Column(JSONB, nullable=False, default=list)
     language = Column(String(5), nullable=False, server_default="vi")
     source = Column(String(20), nullable=False)
     model = Column(String(100), nullable=True)

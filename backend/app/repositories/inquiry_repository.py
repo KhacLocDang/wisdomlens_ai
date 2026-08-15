@@ -15,6 +15,7 @@ def save_inquiry(
     language: str,
     source: str,
     model: str | None = None,
+    rag_sources: list[dict] | None = None,
 ) -> Inquiry:
     inquiry = Inquiry(
         question=answer["question"],
@@ -25,6 +26,7 @@ def save_inquiry(
         similarities=answer["similarities"],
         differences=answer["differences"],
         references=answer.get("references") or [],
+        rag_sources=rag_sources if rag_sources is not None else answer.get("rag_sources") or [],
         language=language,
         source=source,
         model=model,
