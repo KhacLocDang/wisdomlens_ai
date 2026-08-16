@@ -47,31 +47,31 @@ def render_rag_sources(data: dict) -> None:
 
 
 def render_answer(data: dict) -> None:
-    st.subheader("Summary")
+    st.subheader("Tóm tắt / Summary")
     st.write(data.get("summary", ""))
 
-    st.subheader("Buddhism")
+    st.subheader("Phật giáo / Buddhism")
     st.write(data.get("buddhism", ""))
 
-    st.subheader("Western Philosophy")
+    st.subheader("Triết học phương Tây / Western Philosophy")
     st.write(data.get("western_philosophy", ""))
 
-    st.subheader("Psychology")
+    st.subheader("Tâm lý học / Psychology")
     st.write(data.get("psychology", ""))
 
-    st.subheader("Similarities")
+    st.subheader("Điểm tương đồng / Similarities")
     st.write(data.get("similarities", ""))
 
-    st.subheader("Differences")
+    st.subheader("Điểm khác biệt / Differences")
     st.write(data.get("differences", ""))
 
-    st.subheader("References")
+    st.subheader("Tham khảo / References")
     refs = data.get("references") or []
     if refs:
         for ref in refs:
             st.markdown(f"- {ref}")
     else:
-        st.write("No references yet.")
+        st.write("Chưa có tham khảo / No references yet.")
 
     render_rag_sources(data)
 
