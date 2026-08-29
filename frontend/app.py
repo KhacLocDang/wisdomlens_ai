@@ -191,7 +191,7 @@ st.set_page_config(page_title="WisdomLens AI", page_icon="🧠", layout="wide")
 
 st.title("WisdomLens AI")
 st.markdown(
-    "Khám phá câu hỏi cuộc sống qua Phật giáo, Triết học phương Tây và Tâm lý học. "
+    "Khám phá câu hỏi cuộc sống qua Phật giáo, Triết học phương Tây và tâm lý học,... "
     "Góc nhìn có cấu trúc, không phải tư vấn cá nhân hay trị liệu."
 )
 
