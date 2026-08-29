@@ -11,6 +11,15 @@ LANGUAGE_OPTIONS = {
     "English": "en",
 }
 
+PERSPECTIVES = {
+    "buddhism": {"vi": "Phật giáo / Buddhism"},
+    "western_philosophy": {"vi": "Triết học phương Tây / Western Philosophy"},
+    "psychology": {"vi": "Tâm lý học / Psychology"},
+    "christianity": {"vi": "Thiên Chúa giáo / Christianity"},
+    "eastern_philosophy": {"vi": "Triết học phương Đông / Eastern Philosophy"},
+    "natural_science": {"vi": "Khoa học tự nhiên / Natural Science"},
+}
+
 
 def render_rag_sources(data: dict) -> None:
     rag_sources = data.get("rag_sources") or []
@@ -47,31 +56,49 @@ def render_rag_sources(data: dict) -> None:
 
 
 def render_answer(data: dict) -> None:
-    st.subheader("Tóm tắt / Summary")
-    st.write(data.get("summary", ""))
+    summary = data.get("summary")
+    if summary and summary.strip():
+        st.subheader("Tóm tắt / Summary")
+        st.write(summary)
 
-    st.subheader("Phật giáo / Buddhism")
-    st.write(data.get("buddhism", ""))
+    perspectives = data.get("perspectives") or {}
+    if not perspectives:
+        perspectives = {
+            "buddhism": data.get("buddhism"),
+            "western_philosophy": data.get("western_philosophy"),
+            "psychology": data.get("psychology"),
+        }
 
-    st.subheader("Triết học phương Tây / Western Philosophy")
-    st.write(data.get("western_philosophy", ""))
+    perspective_labels = {
+        "buddhism": "Phật giáo / Buddhism",
+        "western_philosophy": "Triết học phương Tây / Western Philosophy",
+        "psychology": "Tâm lý học / Psychology",
+        "christianity": "Thiên Chúa giáo / Christianity",
+        "eastern_philosophy": "Triết học phương Đông / Eastern Philosophy",
+        "natural_science": "Khoa học tự nhiên / Natural Science",
+    }
 
-    st.subheader("Tâm lý học / Psychology")
-    st.write(data.get("psychology", ""))
+    for p_id, p_content in perspectives.items():
+        if p_content and p_content.strip():
+            label = perspective_labels.get(p_id, p_id.replace("_", " ").title())
+            st.subheader(label)
+            st.write(p_content)
 
-    st.subheader("Điểm tương đồng / Similarities")
-    st.write(data.get("similarities", ""))
+    similarities = data.get("similarities")
+    if similarities and similarities.strip():
+        st.subheader("Điểm tương đồng / Similarities")
+        st.write(similarities)
 
-    st.subheader("Điểm khác biệt / Differences")
-    st.write(data.get("differences", ""))
+    differences = data.get("differences")
+    if differences and differences.strip():
+        st.subheader("Điểm khác biệt / Differences")
+        st.write(differences)
 
-    st.subheader("Tham khảo / References")
     refs = data.get("references") or []
     if refs:
+        st.subheader("Tài liệu tham khảo / References")
         for ref in refs:
             st.markdown(f"- {ref}")
-    else:
-        st.write("Chưa có tham khảo / No references yet.")
 
     render_rag_sources(data)
 
@@ -225,16 +252,26 @@ with tab_ask:
         height=120,
     )
 
+    # Select multiple perspectives (default all)
+    selected_perspectives = st.multiselect(
+        "Chọn góc nhìn (có thể chọn nhiều)",
+        options=list(PERSPECTIVES.keys()),
+        default=list(PERSPECTIVES.keys()),
+        format_func=lambda key: PERSPECTIVES[key]["vi"] if "vi" in PERSPECTIVES[key] else key,
+    )
+
     if st.button("Hỏi WisdomLens", type="primary"):
         if not question.strip():
             st.warning("Please enter a question first.")
         else:
-            response = None
             payload = {"question": question.strip(), "language": language}
+            if selected_perspectives:
+                payload["perspectives"] = selected_perspectives
             if rag_mode is not None:
                 payload["use_rag"] = rag_mode
             if model_id:
                 payload["model"] = model_id
+            response = None
             try:
                 response = requests.post(
                     f"{BACKEND_URL}/ask",

@@ -14,14 +14,16 @@ def test_ask_without_rag_uses_original_flow(monkeypatch):
     monkeypatch.setattr("app.main.use_rag", lambda: False)
     monkeypatch.setattr("app.main.resolve_model", lambda requested: "gemini-2.5-flash")
 
-    def fake_generate_gemini_answer(question, language, model=None, rag_context=None):
+    def fake_generate_gemini_answer(question, language, model=None, rag_context=None, **kwargs):
         captured["rag_context"] = rag_context
         return {
             "question": question,
             "summary": "summary",
-            "buddhism": "buddhism",
-            "western_philosophy": "western philosophy",
-            "psychology": "psychology",
+            "perspectives": {
+                "buddhism": "buddhism",
+                "western_philosophy": "western philosophy",
+                "psychology": "psychology",
+            },
             "similarities": "similarities",
             "differences": "differences",
             "references": ["ref"],
@@ -85,14 +87,16 @@ def test_ask_with_rag_passes_retrieved_context(monkeypatch):
             ],
         }
 
-    def fake_generate_gemini_answer(question, language, model=None, rag_context=None):
+    def fake_generate_gemini_answer(question, language, model=None, rag_context=None, **kwargs):
         captured["rag_context"] = rag_context
         return {
             "question": question,
             "summary": "summary",
-            "buddhism": "buddhism",
-            "western_philosophy": "western philosophy",
-            "psychology": "psychology",
+            "perspectives": {
+                "buddhism": "buddhism",
+                "western_philosophy": "western philosophy",
+                "psychology": "psychology",
+            },
             "similarities": "similarities",
             "differences": "differences",
             "references": ["ref"],
@@ -132,14 +136,17 @@ def test_ask_with_rag_handles_no_relevant_chunks(monkeypatch):
         "app.main.build_rag_context",
         lambda db, query, limit=5: {"query": query, "has_sources": False, "context": "", "sources": []},
     )
-    def fake_generate_gemini_answer(question, language, model=None, rag_context=None):
+
+    def fake_generate_gemini_answer(question, language, model=None, rag_context=None, **kwargs):
         captured["rag_context"] = rag_context
         return {
             "question": question,
             "summary": "summary",
-            "buddhism": "buddhism",
-            "western_philosophy": "western philosophy",
-            "psychology": "psychology",
+            "perspectives": {
+                "buddhism": "buddhism",
+                "western_philosophy": "western philosophy",
+                "psychology": "psychology",
+            },
             "similarities": "similarities",
             "differences": "differences",
             "references": [],
@@ -191,6 +198,11 @@ def test_inquiry_detail_returns_saved_rag_sources(monkeypatch):
         buddhism = "buddhism"
         western_philosophy = "western philosophy"
         psychology = "psychology"
+        perspectives = {
+            "buddhism": "buddhism",
+            "western_philosophy": "western philosophy",
+            "psychology": "psychology",
+        }
         similarities = "similarities"
         differences = "differences"
         references = ["ref"]
@@ -214,3 +226,58 @@ def test_inquiry_detail_returns_saved_rag_sources(monkeypatch):
 
     assert response.status_code == 200
     assert response.json()["rag_sources"][0]["rank"] == 1
+    assert response.json()["perspectives"]["buddhism"] == "buddhism"
+
+
+def test_ask_with_selected_perspectives(monkeypatch):
+    captured = {}
+
+    monkeypatch.setattr("app.main.use_fake_answers", lambda: False)
+    monkeypatch.setattr("app.main.resolve_model", lambda requested: "gemini-2.5-flash")
+
+    def fake_generate_gemini_answer(question, language, model=None, rag_context=None, perspectives=None, **kwargs):
+        captured["perspectives"] = perspectives
+        return {
+            "question": question,
+            "summary": "summary",
+            "perspectives": {
+                "buddhism": "buddhism",
+                "psychology": "psychology",
+            },
+            "similarities": "similarities",
+            "differences": "differences",
+            "references": ["ref"],
+            "rag_sources": [],
+        }
+
+    monkeypatch.setattr("app.main.generate_gemini_answer", fake_generate_gemini_answer)
+    monkeypatch.setattr("app.main.save_inquiry", lambda *args, **kwargs: None)
+
+    # Valid perspectives selection
+    response = client.post(
+        "/ask",
+        json={
+            "question": "Selected perspectives test",
+            "language": "en",
+            "perspectives": ["buddhism", "psychology"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["perspectives"] == ["buddhism", "psychology"]
+    body = response.json()
+    assert "buddhism" in body["perspectives"]
+    assert "psychology" in body["perspectives"]
+    assert "western_philosophy" not in body["perspectives"]
+
+    # Invalid perspective validation test
+    invalid_response = client.post(
+        "/ask",
+        json={
+            "question": "Invalid perspective",
+            "language": "en",
+            "perspectives": ["invalid_name"],
+        },
+    )
+    assert invalid_response.status_code == 400
+    assert "Unsupported perspective" in invalid_response.json()["detail"]

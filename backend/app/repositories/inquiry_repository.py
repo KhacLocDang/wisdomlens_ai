@@ -17,12 +17,14 @@ def save_inquiry(
     model: str | None = None,
     rag_sources: list[dict] | None = None,
 ) -> Inquiry:
+    perspectives = answer.get("perspectives") or {}
     inquiry = Inquiry(
         question=answer["question"],
         summary=answer["summary"],
-        buddhism=answer["buddhism"],
-        western_philosophy=answer["western_philosophy"],
-        psychology=answer["psychology"],
+        buddhism=perspectives.get("buddhism"),
+        western_philosophy=perspectives.get("western_philosophy"),
+        psychology=perspectives.get("psychology"),
+        perspectives=perspectives,
         similarities=answer["similarities"],
         differences=answer["differences"],
         references=answer.get("references") or [],

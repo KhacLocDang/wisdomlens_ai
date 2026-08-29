@@ -77,9 +77,23 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
     question = request.question.strip()
     language = request.language
     rag_enabled = request.use_rag if request.use_rag is not None else use_rag()
+    perspectives = request.perspectives
+
+    if perspectives is not None:
+        supported = {"buddhism", "western_philosophy", "psychology", "christianity", "eastern_philosophy", "natural_science"}
+        normalized = [p.strip().lower() for p in perspectives]
+        if not normalized:
+            raise HTTPException(status_code=400, detail="At least one perspective must be selected.")
+        for p in normalized:
+            if p not in supported:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unsupported perspective: {p}. Supported perspectives are: {list(supported)}",
+                )
+        perspectives = normalized
 
     if use_fake_answers():
-        answer = generate_fake_answer(question, language)
+        answer = generate_fake_answer(question, language, perspectives=perspectives)
         source = "fake"
         model = None
         rag_sources: list[dict] = []
@@ -98,7 +112,13 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
                     logger.exception("RAG retrieval failed; falling back to non-RAG ask flow")
                     rag_context = None
 
-            answer = generate_gemini_answer(question, language, model=model, rag_context=rag_context)
+            answer = generate_gemini_answer(
+                question,
+                language,
+                model=model,
+                rag_context=rag_context,
+                perspectives=perspectives,
+            )
             source = "gemini"
             rag_sources = answer.get("rag_sources") or []
         except ValueError as exc:
@@ -339,9 +359,7 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
         id=inquiry.id,
         question=inquiry.question,
         summary=inquiry.summary,
-        buddhism=inquiry.buddhism,
-        western_philosophy=inquiry.western_philosophy,
-        psychology=inquiry.psychology,
+        perspectives=inquiry.perspectives or {},
         similarities=inquiry.similarities,
         differences=inquiry.differences,
         references=inquiry.references or [],

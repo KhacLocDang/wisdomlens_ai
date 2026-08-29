@@ -36,25 +36,27 @@ _MODELS_CACHE_TTL_SECONDS = 600  # 10 minutes
 SYSTEM_PROMPTS = {
     "en": (
         "You are WisdomLens AI. Answer the user's life question by synthesizing "
-        "three perspectives: Buddhism, Western philosophy, and psychology.\n\n"
+        "multiple perspectives.\n\n"
         "Rules:\n"
         "- Provide structured informational perspectives, NOT personal advice or therapy.\n"
         "- Be thoughtful, accessible, and concise (2-4 sentences per section).\n"
         "- Cite real sources in references where possible (texts, thinkers, research areas).\n"
         "- Return ONLY valid JSON with these keys:\n"
-        "  summary, buddhism, western_philosophy, psychology, similarities, differences, references\n"
+        "  summary, perspectives, similarities, differences, references\n"
+        "- perspectives must be a JSON object containing the perspective keys as strings and answers as strings.\n"
         "- references must be a JSON array of strings.\n"
         "- Answer entirely in English."
     ),
     "vi": (
         "Bạn là WisdomLens AI. Hãy trả lời câu hỏi cuộc sống của người dùng "
-        "bằng cách tổng hợp ba góc nhìn: Phật giáo, Triết học phương Tây, và Tâm lý học.\n\n"
+        "bằng cách tổng hợp nhiều góc nhìn.\n\n"
         "Quy tắc:\n"
         "- Cung cấp góc nhìn có cấu trúc, KHÔNG đưa lời khuyên cá nhân hay trị liệu.\n"
         "- Trình bày rõ ràng, dễ hiểu, ngắn gọn (2-4 câu mỗi phần).\n"
         "- Trích dẫn nguồn thật nếu có thể (kinh sách, nhà tư tưởng, lĩnh vực nghiên cứu).\n"
         "- Trả về CHỈ JSON hợp lệ với các key:\n"
-        "  summary, buddhism, western_philosophy, psychology, similarities, differences, references\n"
+        "  summary, perspectives, similarities, differences, references\n"
+        "- perspectives phải là một đối tượng JSON chứa các khóa của góc nhìn dưới dạng chuỗi và nội dung trả lời dưới dạng chuỗi.\n"
         "- references phải là mảng JSON các chuỗi.\n"
         "- Trả lời toàn bộ bằng tiếng Việt."
     ),
@@ -95,6 +97,28 @@ FAKE_ANSWERS = {
             "They differ (placeholder) in emphasis: Buddhism on attachment, "
             "Western philosophy on ethics and meaning, psychology on cognition and behavior."
         ),
+        "christianity": (
+            "From a Christian perspective (placeholder): failure and suffering can be "
+            "understood as part of a redemptive journey, calling for humility and faith."
+        ),
+        "eastern_philosophy": (
+            "From Eastern philosophy (placeholder): thinkers like Confucius and the Tao "
+            "tradition see failure as a teacher that reveals the path of virtue and balance."
+        ),
+        "natural_science": (
+            "From natural science (placeholder): fear of failure is rooted in evolutionary "
+            "threat-detection mechanisms that protect survival and social standing."
+        ),
+        "similarities": (
+            "All lenses (placeholder) connect fear of failure to how "
+            "humans relate to uncertainty, identity, and the need for meaning."
+        ),
+        "differences": (
+            "They differ (placeholder) in emphasis: Buddhism on attachment, "
+            "Western philosophy on ethics and meaning, psychology on cognition and behavior, "
+            "Christianity on redemption and faith, Eastern philosophy on virtue and balance, "
+            "natural science on evolutionary adaptation."
+        ),
         "references": [
             "Placeholder — Dhammapada (Buddhist teachings)",
             "Placeholder — Epictetus, Enchiridion (Stoic perspective)",
@@ -105,7 +129,8 @@ FAKE_ANSWERS = {
         "summary": (
             "Đây là bản tóm tắt tạm. "
             "WisdomLens AI sẽ tổng hợp góc nhìn từ "
-            "Phật giáo, Triết học phương Tây, và Tâm lý học."
+            "Phật giáo, Triết học phương Tây, Tâm lý học, "
+            "Thiên Chúa giáo, Triết học phương Đông, và Khoa học tự nhiên."
         ),
         "buddhism": (
             "Từ góc nhìn Phật giáo (tạm): khổ đau thường phát sinh "
@@ -119,13 +144,27 @@ FAKE_ANSWERS = {
             "Từ góc nhìn Tâm lý học (tạm): nỗi sợ thất bại liên quan đến "
             "phản ứng phòng vệ, chủ nghĩa hoàn hảo, và áp lực đánh giá xã hội."
         ),
+        "christianity": (
+            "Từ góc nhìn Thiên Chúa giáo (tạm): thất bại và khổ đau có thể được hiểu "
+            "là một phần trong hành trình cứu chuộc, mời gọi sự khiêm nhường và đức tin."
+        ),
+        "eastern_philosophy": (
+            "Từ góc nhìn Triết học phương Đông (tạm): các nhà tư tưởng như Khổng Tử và "
+            "truyền thống Đạo gia xem thất bại là người thầy dẫn dắt ta trên con đường đức hạnh và cân bằng."
+        ),
+        "natural_science": (
+            "Từ góc nhìn Khoa học tự nhiên (tạm): nỗi sợ thất bại bắt nguồn từ các cơ chế "
+            "phát hiện mối nguy tiến hóa giúp bảo vệ sự sống còn và vị thế xã hội."
+        ),
         "similarities": (
-            "Cả ba góc nhìn (tạm) đều liên kết nỗi sợ thất bại với cách "
+            "Tất cả các góc nhìn (tạm) đều liên kết nỗi sợ thất bại với cách "
             "con người đối mặt sự bất định, bản sắc, và nhu cầu tìm ý nghĩa."
         ),
         "differences": (
             "Chúng khác nhau (tạm) ở trọng tâm: Phật giáo về chấp thủ, "
-            "Triết học phương Tây về đạo đức và ý nghĩa, Tâm lý học về nhận thức và hành vi."
+            "Triết học phương Tây về đạo đức và ý nghĩa, Tâm lý học về nhận thức và hành vi, "
+            "Thiên Chúa giáo về sự cứu chuộc và đức tin, Triết học phương Đông về đức hạnh và cân bằng, "
+            "Khoa học tự nhiên về sự thích nghi tiến hóa."
         ),
         "references": [
             "Tạm — Kinh Pháp Cú (giáo lý Phật giáo)",
@@ -219,9 +258,38 @@ def resolve_model(requested: str | None) -> str:
     raise ValueError(f"Unsupported model: {requested}")
 
 
-def generate_fake_answer(question: str, language: str = "vi") -> dict:
+def generate_fake_answer(
+    question: str,
+    language: str = "vi",
+    perspectives: list[str] | None = None,
+) -> dict:
     """Return a static structured answer for the MVP skeleton."""
-    fake = FAKE_ANSWERS.get(language, FAKE_ANSWERS["vi"])
+    fake = FAKE_ANSWERS.get(language, FAKE_ANSWERS["vi"]).copy()
+
+    _all_perspectives = [
+        "buddhism", "western_philosophy", "psychology",
+        "christianity", "eastern_philosophy", "natural_science",
+    ]
+
+    if perspectives is None:
+        perspectives = _all_perspectives[:]
+    else:
+        perspectives = [p.lower() for p in perspectives]
+
+    perspectives_dict = {}
+    for p in _all_perspectives:
+        if p in perspectives:
+            perspectives_dict[p] = fake.get(p, "")
+
+    for p in _all_perspectives:
+        fake.pop(p, None)
+
+    fake["perspectives"] = perspectives_dict
+
+    if len(perspectives) <= 1:
+        fake["similarities"] = ""
+        fake["differences"] = ""
+
     return {"question": question, **fake}
 
 
@@ -230,6 +298,7 @@ def generate_gemini_answer(
     language: str = "vi",
     model: str | None = None,
     rag_context: dict | None = None,
+    perspectives: list[str] | None = None,
 ) -> dict:
     """Call Gemini and return a structured answer matching AskResponse."""
     api_key = get_gemini_api_key()
@@ -239,6 +308,51 @@ def generate_gemini_answer(
     model_id = resolve_model(model)
     prompt = SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS["vi"])
     contents = f"Question: {question}"
+
+    if perspectives is None:
+        perspectives = ["buddhism", "western_philosophy", "psychology", "christianity", "eastern_philosophy", "natural_science"]
+    else:
+        perspectives = [p.lower() for p in perspectives]
+
+    # Map perspective IDs to human readable names for prompt instruction
+    perspective_names = {
+        "en": {
+            "buddhism": "Buddhism",
+            "western_philosophy": "Western philosophy",
+            "psychology": "Psychology",
+            "christianity": "Christianity",
+            "eastern_philosophy": "Eastern philosophy",
+            "natural_science": "Natural science",
+        },
+        "vi": {
+            "buddhism": "Phật giáo",
+            "western_philosophy": "Triết học phương Tây",
+            "psychology": "Tâm lý học",
+            "christianity": "Thiên Chúa giáo",
+            "eastern_philosophy": "Triết học phương Đông",
+            "natural_science": "Khoa học tự nhiên",
+        }
+    }
+    lang_names = perspective_names.get(language, perspective_names["vi"])
+    selected_names = [lang_names.get(p, p) for p in perspectives]
+
+    if language == "en":
+        perspective_list_str = ", ".join(selected_names[:-1]) + " and " + selected_names[-1] if len(selected_names) > 1 else selected_names[0]
+        perspective_instruction = (
+            f"\n\nActive Perspectives:\n"
+            f"You MUST only analyze the question and populate the 'perspectives' JSON object for these keys: {perspectives}.\n"
+            f"Do NOT include any other keys in the 'perspectives' JSON object.\n"
+            f"If only one perspective is selected, set similarities and differences to empty strings \"\"."
+        )
+    else:
+        perspective_list_str = ", ".join(selected_names[:-1]) + " và " + selected_names[-1] if len(selected_names) > 1 else selected_names[0]
+        perspective_instruction = (
+            f"\n\nGóc nhìn hoạt động:\n"
+            f"Bạn BẮT BUỘC chỉ được phân tích câu hỏi và điền thông tin vào đối tượng JSON 'perspectives' cho các khóa sau: {perspectives}.\n"
+            f"KHÔNG được bao gồm bất kỳ khóa nào khác trong đối tượng JSON 'perspectives'.\n"
+            f"Nếu chỉ có một góc nhìn được chọn, hãy đặt similarities và differences thành chuỗi rỗng \"\"."
+        )
+    prompt = f"{prompt}\n{perspective_instruction}"
 
     rag_sources = []
     if rag_context is not None:
@@ -261,11 +375,16 @@ def generate_gemini_answer(
         config=types.GenerateContentConfig(
             system_instruction=prompt,
             response_mime_type="application/json",
-            response_schema=GeminiWisdomFields,
         ),
     )
     if not response.text:
         raise ValueError("Gemini returned an empty response")
-
-    fields = GeminiWisdomFields.model_validate_json(response.text)
+    # Clean up possible trailing commas that break strict JSON parsing
+    import re, json
+    def _clean_json(raw: str) -> str:
+        # Remove any commas that appear just before a closing brace or bracket
+        # This handles trailing commas in objects and arrays.
+        return re.sub(r",\s*(?=[}\]])", "", raw)
+    cleaned = _clean_json(response.text)
+    fields = GeminiWisdomFields.model_validate_json(cleaned)
     return AskResponse(question=question, rag_sources=rag_sources, **fields.model_dump()).model_dump()

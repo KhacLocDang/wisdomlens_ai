@@ -18,6 +18,11 @@ class AskRequest(BaseModel):
         examples=["gemini-2.5-flash"],
         description="Gemini model id from GET /models. Uses GEMINI_MODEL env default if omitted.",
     )
+    perspectives: list[str] | None = Field(
+        default=None,
+        examples=[["buddhism", "psychology"]],
+        description="List of perspectives to include. Defaults to all if not specified.",
+    )
 
 
 class ModelInfo(BaseModel):
@@ -27,12 +32,10 @@ class ModelInfo(BaseModel):
 
 class GeminiWisdomFields(BaseModel):
     summary: str
-    buddhism: str
-    western_philosophy: str
-    psychology: str
-    similarities: str
-    differences: str
-    references: list[str]
+    perspectives: dict[str, str] = Field(default_factory=dict)
+    similarities: str = ""
+    differences: str = ""
+    references: list[str] = Field(default_factory=list)
 
 
 class RagSource(BaseModel):
@@ -52,12 +55,10 @@ class RagSource(BaseModel):
 class AskResponse(BaseModel):
     question: str
     summary: str
-    buddhism: str
-    western_philosophy: str
-    psychology: str
-    similarities: str
-    differences: str
-    references: list[str]
+    perspectives: dict[str, str] = Field(default_factory=dict)
+    similarities: str = ""
+    differences: str = ""
+    references: list[str] = Field(default_factory=list)
     rag_sources: list[RagSource] = Field(default_factory=list)
 
 

@@ -127,6 +127,14 @@ The Streamlit app includes tabs for:
 - **Semantic Retrieval** — search stored chunks directly
 - **Tài liệu (Documents)** — inspect uploaded documents and their chunks
 
+## Feature: Select Multiple Perspectives
+
+- **Backend:** Added a `perspectives` JSONB column to the `inquiries` table to store answers for any number of perspectives. The column is populated from the request's `perspectives` list.
+- **API:** The `/ask` endpoint now accepts an optional `"perspectives": ["buddhism", "psychology", ...]` field. The backend builds a dynamic prompt that includes each selected perspective and returns a dictionary of answers.
+- **Frontend:** Introduced a multiselect UI (`st.multiselect`) defined by the `PERSPECTIVES` constant, allowing users to pick any combination of available perspectives.
+- **Migration:** Alembic migration creates the `perspectives` column and keeps the older perspective columns nullable for backward compatibility.
+- **Schema:** `GeminiWisdomFields` now includes a `perspectives: dict[str, str]` field, and responses store each perspective's answer in this dict.
+
 ## Database migrations (Alembic)
 
 Schema changes are managed with Alembic. Migrations run automatically on `docker compose up`.
