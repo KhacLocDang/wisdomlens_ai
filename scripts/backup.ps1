@@ -51,17 +51,17 @@ Copy-Item -Path $LocalPath -Destination $OneDrivePath
 Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Copied to OneDrive: $OneDrivePath" -ForegroundColor Green
 
 # 4. Remove old local backups
-$OldLocal = Get-ChildItem -Path $BackupsDir -Filter "wisdomlens_*.sql" |
-    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetainDays) }
-if ($OldLocal) {
+$OldLocal = @(Get-ChildItem -Path $BackupsDir -Filter "wisdomlens_*.sql" |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetainDays) })
+if ($OldLocal.Count -gt 0) {
     $OldLocal | Remove-Item
     Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Removed $($OldLocal.Count) old local backup(s)."
 }
 
 # 5. Remove old OneDrive backups
-$OldOneDrive = Get-ChildItem -Path $OneDriveDir -Filter "wisdomlens_*.sql" |
-    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetainOneDrive) }
-if ($OldOneDrive) {
+$OldOneDrive = @(Get-ChildItem -Path $OneDriveDir -Filter "wisdomlens_*.sql" |
+    Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetainOneDrive) })
+if ($OldOneDrive.Count -gt 0) {
     $OldOneDrive | Remove-Item
     Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Removed $($OldOneDrive.Count) old OneDrive backup(s)."
 }
