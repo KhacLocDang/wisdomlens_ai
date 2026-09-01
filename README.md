@@ -5,6 +5,9 @@ WisdomLens AI helps users explore life questions through multiple perspectives:
 - Buddhism
 - Western philosophy
 - Psychology
+- Christianity
+- Eastern philosophy
+- Natural sciences
 
 This project provides structured information and perspectives so humans and AI can reason together. It is **not** a therapist or deep life advisor.
 
