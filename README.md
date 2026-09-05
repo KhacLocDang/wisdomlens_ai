@@ -197,3 +197,16 @@ Replace `<project-root>` with where you cloned this repo (e.g. `%USERPROFILE%\de
 2. Improve retrieval ranking and chunk metadata
 3. Add authentication and per-user history
 4. Add local model support via Ollama (e.g. Llama, Gemma)
+
+## License & Usage Notice
+
+WisdomLens AI is a personal project created for learning, research, and experimentation.
+
+The source code is publicly available for reference. You may download and run the project using your own API keys for personal, educational, research, experimental, or legitimate business purposes.
+
+Please use this project responsibly and do not use it for illegal, harmful, malicious, abusive, or unethical purposes.
+
+This repository may contain third-party libraries, resources, documentation, or other materials that are subject to their respective licenses and terms. Their rights remain with their respective owners.
+
+Unless otherwise stated, no general license is granted to redistribute, relicense, or commercially distribute the source code itself without permission from the author.
+
