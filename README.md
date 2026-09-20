@@ -138,6 +138,26 @@ The Streamlit app includes tabs for:
 - **Migration:** Alembic migration creates the `perspectives` column and keeps the older perspective columns nullable for backward compatibility.
 - **Schema:** `GeminiWisdomFields` now includes a `perspectives: dict[str, str]` field, and responses store each perspective's answer in this dict.
 
+## Research Agent (Experimental)
+
+A standalone exploratory tool (`analysis/research_agent.py`) that reads saved inquiries from PostgreSQL (read-only) and uses Gemini to identify recurring life themes, compare perspective patterns, and generate hypotheses for further research. Reports are saved to `analysis/research_report.md`.
+
+Quick commands:
+
+```powershell
+# Verify DB connection, schema, prompt size, and API key configuration without calling Gemini:
+python analysis/research_agent.py --check-only
+
+# Run full analysis and generate report:
+python analysis/research_agent.py
+
+# Preview sample prepared records:
+python analysis/research_agent.py --preview --preview-records 3
+
+# Customize analysis:
+python analysis/research_agent.py --limit 100 --model gemini-2.5-flash
+```
+
 ## Database migrations (Alembic)
 
 Schema changes are managed with Alembic. Migrations run automatically on `docker compose up`.

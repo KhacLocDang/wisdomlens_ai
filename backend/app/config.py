@@ -1,4 +1,6 @@
 import os
+import socket
+from urllib.parse import urlparse, urlunparse
 
 from dotenv import load_dotenv
 
@@ -54,7 +56,18 @@ def normalize_model_id(model_id: str) -> str:
 
 
 def get_database_url() -> str:
-    return os.getenv(
+    database_url = os.getenv(
         "DATABASE_URL",
         "postgresql://wisdomlens:wisdomlens@postgres:5432/wisdomlens",
     )
+
+    parsed = urlparse(database_url)
+    if parsed.hostname == "postgres":
+        try:
+            socket.getaddrinfo(parsed.hostname, None)
+            return database_url
+        except OSError:
+            fallback_netloc = parsed.netloc.replace("postgres", "127.0.0.1", 1)
+            return urlunparse(parsed._replace(netloc=fallback_netloc))
+
+    return database_url
