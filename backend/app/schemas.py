@@ -13,10 +13,15 @@ class AskRequest(BaseModel):
         default=None,
         description="Override the USE_RAG env flag for this request.",
     )
+    provider: str | None = Field(
+        default=None,
+        examples=["gemini", "claude"],
+        description="LLM provider: 'gemini' or 'claude'. Uses AI_PROVIDER env default if omitted.",
+    )
     model: str | None = Field(
         default=None,
-        examples=["gemini-2.5-flash"],
-        description="Gemini model id from GET /models. Uses GEMINI_MODEL env default if omitted.",
+        examples=["gemini-2.5-flash", "claude-3-5-haiku-20241022"],
+        description="Model id. Uses provider default env if omitted.",
     )
     perspectives: list[str] | None = Field(
         default=None,
@@ -28,14 +33,19 @@ class AskRequest(BaseModel):
 class ModelInfo(BaseModel):
     id: str
     display_name: str
+    provider: str | None = None
 
 
-class GeminiWisdomFields(BaseModel):
+class WisdomFields(BaseModel):
     summary: str
     perspectives: dict[str, str] = Field(default_factory=dict)
     similarities: str = ""
     differences: str = ""
     references: list[str] = Field(default_factory=list)
+
+
+# Backward-compatible alias for existing code/tests
+GeminiWisdomFields = WisdomFields
 
 
 class RagSource(BaseModel):

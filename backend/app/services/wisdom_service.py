@@ -5,6 +5,7 @@ from google.genai import types
 
 from app.config import (
     FALLBACK_GEMINI_MODELS,
+    get_ai_provider,
     get_gemini_api_key,
     get_gemini_model,
     normalize_model_id,
@@ -291,6 +292,31 @@ def generate_fake_answer(
         fake["differences"] = ""
 
     return {"question": question, **fake}
+
+
+def generate_provider_answer(
+    question: str,
+    provider: str | None = None,
+    language: str = "vi",
+    model: str | None = None,
+    rag_context: dict | None = None,
+    perspectives: list[str] | None = None,
+) -> dict:
+    """Dispatch generation to the configured provider or a specific provider override."""
+    from app.services.providers import get_provider
+
+    provider_name = (provider or get_ai_provider()).strip().lower()
+    if not provider_name:
+        provider_name = "gemini"
+
+    provider_impl = get_provider(provider_name)
+    return provider_impl.generate_answer(
+        question=question,
+        language=language,
+        model=model,
+        rag_context=rag_context,
+        perspectives=perspectives,
+    )
 
 
 def generate_gemini_answer(

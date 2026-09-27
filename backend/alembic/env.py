@@ -18,10 +18,17 @@ target_metadata = Base.metadata
 
 
 def get_url() -> str:
-    return os.getenv(
+    url = os.getenv(
         "DATABASE_URL",
-        "postgresql://wisdomlens:wisdomlens@postgres:5432/wisdomlens",
+        "postgresql+psycopg2://wisdomlens:wisdomlens@postgres:5432/wisdomlens",
     )
+    # Normalize: SQLAlchemy 2.1+ picks psycopg3 for plain "postgresql://",
+    # but only psycopg2-binary is installed.
+    if url.startswith("postgresql://"):
+        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+    elif url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg2://", 1)
+    return url
 
 
 def run_migrations_offline() -> None:

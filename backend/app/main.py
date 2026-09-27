@@ -34,8 +34,13 @@ from app.schemas import (
 from app.services.wisdom_service import (
     generate_fake_answer,
     generate_gemini_answer,
+    generate_provider_answer,
     list_gemini_models,
     resolve_model,
+)
+from app.services.providers import (
+    list_models_for_provider,
+    list_supported_providers,
 )
 
 logger = logging.getLogger(__name__)
@@ -65,11 +70,19 @@ def health_check():
     }
 
 
+@app.get("/providers", response_model=list[str])
+def list_providers_endpoint():
+    """List supported AI providers."""
+    return list_supported_providers()
+
+
 @app.get("/models", response_model=list[ModelInfo])
-def list_models_endpoint():
-    """List Gemini text models available for this API key (cached)."""
-    models = list_gemini_models()
-    return [ModelInfo(id=m["id"], display_name=m["display_name"]) for m in models]
+def list_models_endpoint(provider: Optional[str] = Query(None, description="Optional provider filter (gemini, claude)")):
+    """List available text models for specified provider or default provider."""
+    try:
+        return list_models_for_provider(provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @app.post("/ask", response_model=AskResponse)
@@ -78,6 +91,7 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
     language = request.language
     rag_enabled = request.use_rag if request.use_rag is not None else use_rag()
     perspectives = request.perspectives
+    requested_provider = request.provider
 
     if perspectives is not None:
         supported = {"buddhism", "western_philosophy", "psychology", "christianity", "eastern_philosophy", "natural_science"}
@@ -99,11 +113,6 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
         rag_sources: list[dict] = []
     else:
         try:
-            model = resolve_model(request.model)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-        try:
             rag_context = None
             if rag_enabled:
                 try:
@@ -112,21 +121,35 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
                     logger.exception("RAG retrieval failed; falling back to non-RAG ask flow")
                     rag_context = None
 
-            answer = generate_gemini_answer(
-                question,
-                language,
-                model=model,
-                rag_context=rag_context,
-                perspectives=perspectives,
-            )
-            source = "gemini"
+            if requested_provider in (None, "gemini"):
+                model = resolve_model(request.model)
+                answer = generate_gemini_answer(
+                    question,
+                    language,
+                    model=model,
+                    rag_context=rag_context,
+                    perspectives=perspectives,
+                )
+                source = "gemini"
+            else:
+                answer = generate_provider_answer(
+                    question=question,
+                    provider=requested_provider,
+                    language=language,
+                    model=request.model,
+                    rag_context=rag_context,
+                    perspectives=perspectives,
+                )
+                source = requested_provider
+                model = request.model or answer.get("model")
             rag_sources = answer.get("rag_sources") or []
         except ValueError as exc:
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except Exception as exc:
+            prov_label = requested_provider or "Gemini"
             raise HTTPException(
                 status_code=502,
-                detail=f"Gemini request failed: {exc}",
+                detail=f"{prov_label} request failed: {exc}",
             ) from exc
 
     try:

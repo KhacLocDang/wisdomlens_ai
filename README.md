@@ -13,7 +13,7 @@ This project provides structured information and perspectives so humans and AI c
 
 ## Tech stack
 
-- **Backend:** FastAPI (Python) + Google Gemini API
+- **Backend:** FastAPI (Python) + multiple LLM providers (Gemini by default, Claude as second provider)
 - **Database:** PostgreSQL 16
 - **Frontend:** Streamlit (Python)
 - **Run:** Docker Compose
@@ -30,10 +30,12 @@ From the project root (`wisdomlens_ai`):
 copy .env.example .env
 ```
 
-Open `.env` and set your Gemini API key:
+Open `.env` and set your provider credentials:
 
 ```env
-GEMINI_API_KEY=your-real-api-key-here
+GEMINI_API_KEY=your-real-gemini-key-here
+CLAUDE_API_KEY=your-real-claude-key-here
+AI_PROVIDER=gemini
 ```
 
 > **Note:** Use file `.env` (not `.env.example`). Docker reads `.env` at the project root. Do not commit `.env` to Git.
@@ -42,15 +44,18 @@ Optional variables in `.env`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `USE_FAKE_ANSWERS` | `false` | Set to `true` to skip Gemini and return static placeholder answers |
+| `USE_FAKE_ANSWERS` | `false` | Set to `true` to skip model generation and return static placeholder answers |
+| `AI_PROVIDER` | `gemini` | Default provider for generation (`gemini` or `claude`) |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Default Gemini model when UI does not send `model` |
+| `CLAUDE_MODEL` | `claude-3-5-haiku-20241022` | Default Claude model when using the Claude provider |
 | `USE_RAG` | `false` | Set to `true` to make `/ask` use retrieval context by default |
 | `RAG_MIN_SCORE` | `0.35` | Minimum cosine similarity score for a retrieved chunk to be used as context |
 | `POSTGRES_USER` | `wisdomlens` | PostgreSQL username (local dev) |
 | `POSTGRES_PASSWORD` | `wisdomlens` | PostgreSQL password (local dev — change for production) |
 | `POSTGRES_DB` | `wisdomlens` | PostgreSQL database name |
+| `DATABASE_URL` | `postgresql+psycopg2://...` | Full SQLAlchemy DB connection string specifying `psycopg2` driver dialect |
 
-PostgreSQL credentials are read from `.env` by Docker Compose. `DATABASE_URL` for the backend is built automatically. Each successful `/ask` request is saved to the `inquiries` table.
+PostgreSQL credentials are read from `.env` by Docker Compose. `DATABASE_URL` for the backend uses `postgresql+psycopg2://` scheme to ensure compatibility with `psycopg2-binary`. Each successful `/ask` request is saved to the `inquiries` table.
 
 Schema is managed by **Alembic**. Migrations run automatically on startup (`alembic upgrade head`).
 
@@ -97,10 +102,16 @@ curl -X POST "http://localhost:8000/ask" `
   -d "{\"question\": \"Why do humans suffer?\", \"language\": \"en\", \"use_rag\": true}"
 ```
 
-List available Gemini models (filtered for text generation):
+List available models for the default provider (Gemini by default):
 
 ```powershell
 curl "http://localhost:8000/models"
+```
+
+List available models for Claude explicitly:
+
+```powershell
+curl "http://localhost:8000/models?provider=claude"
 ```
 
 List saved questions:
@@ -125,7 +136,7 @@ curl "http://localhost:8000/inquiries/1"
 
 The Streamlit app includes tabs for:
 
-- **Hỏi (Ask)** — ask a new question, choose language, Gemini model, and whether to use RAG for that request
+- **Hỏi (Ask)** — ask a new question, choose language, provider (Gemini or Claude), model, and whether to use RAG for that request
 - **Lịch sử (History)** — browse saved questions from PostgreSQL, including stored RAG source metadata
 - **Semantic Retrieval** — search stored chunks directly
 - **Tài liệu (Documents)** — inspect uploaded documents and their chunks
@@ -137,6 +148,18 @@ The Streamlit app includes tabs for:
 - **Frontend:** Introduced a multiselect UI (`st.multiselect`) defined by the `PERSPECTIVES` constant, allowing users to pick any combination of available perspectives.
 - **Migration:** Alembic migration creates the `perspectives` column and keeps the older perspective columns nullable for backward compatibility.
 - **Schema:** `GeminiWisdomFields` now includes a `perspectives: dict[str, str]` field, and responses store each perspective's answer in this dict.
+
+## Feature: Multiple LLM Providers (Gemini & Claude)
+
+WisdomLens AI allows flexible switching between AI providers:
+- **Supported Providers:** Google Gemini (`gemini`) and Anthropic Claude (`claude`).
+- **Default behavior:** Gemini remains the default provider for backward compatibility.
+- **Configuration (`.env`):** Set `CLAUDE_API_KEY=sk-ant-...`, optionally set `AI_PROVIDER=claude`, and keep `GEMINI_API_KEY` for Gemini usage.
+- **Streamlit UI:** Select provider from the "Nhà cung cấp AI" dropdown in the Ask tab; model list updates automatically.
+- **API `/ask`:** Pass `"provider": "claude"` and `"model": "claude-3-5-haiku-20241022"` in the JSON payload.
+- **Extensibility:** The provider layer is designed so future providers such as GPT-compatible APIs or open-source local models can be added with the same contract.
+
+
 
 ## Research Agent (Experimental)
 
@@ -205,7 +228,8 @@ Replace `<project-root>` with where you cloned this repo (e.g. `%USERPROFILE%\de
 
 ## Current limitations
 
-- Answers come from Gemini (or static placeholders if `USE_FAKE_ANSWERS=true`)
+- Gemini remains the default provider; Claude is available as a second supported option
+- Static placeholder answers are still used when `USE_FAKE_ANSWERS=true`
 - RAG is optional and only uses stored chunks that pass the similarity threshold
 - History shows all saved questions, with no login or per-user filtering yet
 - No authentication or user accounts
@@ -216,7 +240,8 @@ Replace `<project-root>` with where you cloned this repo (e.g. `%USERPROFILE%\de
 1. Render source citations inline in the UI
 2. Improve retrieval ranking and chunk metadata
 3. Add authentication and per-user history
-4. Add local model support via Ollama (e.g. Llama, Gemma)
+4. Add support for GPT-compatible providers and open-source local models via the same provider abstraction
+5. Add local model support via Ollama (e.g. Llama, Gemma)
 
 ## License & Usage Notice
 

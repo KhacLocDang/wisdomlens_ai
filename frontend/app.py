@@ -143,8 +143,19 @@ def format_document_label(item: dict) -> str:
 
 
 @st.cache_data(ttl=600)
-def load_models() -> list[dict]:
-    response = requests.get(f"{BACKEND_URL}/models", timeout=20)
+def load_providers() -> list[str]:
+    try:
+        response = requests.get(f"{BACKEND_URL}/providers", timeout=20)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return ["gemini", "claude"]
+
+
+@st.cache_data(ttl=600)
+def load_models(provider: str | None = None) -> list[dict]:
+    params = {"provider": provider} if provider else {}
+    response = requests.get(f"{BACKEND_URL}/models", params=params, timeout=20)
     response.raise_for_status()
     return response.json()
 
@@ -200,7 +211,7 @@ tab_ask, tab_history, tab_retrieve, tab_documents = st.tabs(
 )
 
 with tab_ask:
-    col_lang, col_model = st.columns(2)
+    col_lang, col_provider, col_model = st.columns(3)
 
     with col_lang:
         selected_lang_label = st.selectbox(
@@ -209,10 +220,27 @@ with tab_ask:
         )
         language = LANGUAGE_OPTIONS[selected_lang_label]
 
+    with col_provider:
+        available_providers = load_providers()
+        provider_display_names = {
+            "gemini": "Google Gemini",
+            "claude": "Anthropic Claude",
+        }
+        selected_provider_label = st.selectbox(
+            "Nhà cung cấp AI",
+            [provider_display_names.get(p, p.title()) for p in available_providers],
+            index=0,
+        )
+        # Reverse map display name back to provider ID
+        rev_provider_map = {
+            provider_display_names.get(p, p.title()): p for p in available_providers
+        }
+        selected_provider = rev_provider_map[selected_provider_label]
+
     model_id = None
     with col_model:
         try:
-            models = load_models()
+            models = load_models(provider=selected_provider)
             if models:
                 model_labels = {
                     f"{m.get('display_name') or m['id']} ({m['id']})": m["id"]
@@ -220,7 +248,7 @@ with tab_ask:
                 }
                 default_index = 0
                 for i, mid in enumerate(model_labels.values()):
-                    if mid == "gemini-2.5-flash":
+                    if mid in ("gemini-2.5-flash", "gemini-3.5-flash", "claude-3-5-haiku-20241022"):
                         default_index = i
                         break
                 selected_model_label = st.selectbox(
@@ -264,7 +292,11 @@ with tab_ask:
         if not question.strip():
             st.warning("Please enter a question first.")
         else:
-            payload = {"question": question.strip(), "language": language}
+            payload = {
+                "question": question.strip(),
+                "language": language,
+                "provider": selected_provider,
+            }
             if selected_perspectives:
                 payload["perspectives"] = selected_perspectives
             if rag_mode is not None:
