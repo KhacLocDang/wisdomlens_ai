@@ -130,3 +130,30 @@ class EmbeddingRefreshResult(BaseModel):
     refreshed_chunk_ids: list[int]
     errors: list[EmbeddingRefreshError]
     quota_exhausted: bool = False
+
+
+class TTSVoiceInfo(BaseModel):
+    id: str
+    name: str
+    description: str
+
+
+class TTSModelInfo(BaseModel):
+    id: str
+    display_name: str
+
+
+class TTSRequest(BaseModel):
+    text: str = Field(..., min_length=1, examples=["Cuộc sống là một hành trình liên tục thay đổi."])
+    voice: str | None = Field(
+        default=None,
+        examples=["Aoede", "Puck"],
+        description="Gemini prebuilt voice name. Defaults to GEMINI_TTS_VOICE if omitted.",
+    )
+    model: str | None = Field(
+        default=None,
+        examples=["gemini-2.0-flash", "gemini-2.5-flash"],
+        description="Gemini TTS model. Defaults to GEMINI_TTS_MODEL if omitted.",
+    )
+    language: Language = "vi"
+

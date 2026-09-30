@@ -2,7 +2,7 @@ import logging
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Response, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -30,6 +30,9 @@ from app.schemas import (
     InquirySummary,
     ModelInfo,
     EmbeddingRefreshResult,
+    TTSModelInfo,
+    TTSRequest,
+    TTSVoiceInfo,
 )
 from app.services.wisdom_service import (
     generate_fake_answer,
@@ -41,6 +44,11 @@ from app.services.wisdom_service import (
 from app.services.providers import (
     list_models_for_provider,
     list_supported_providers,
+)
+from app.services.tts_service import (
+    list_tts_models,
+    list_tts_voices,
+    synthesize_speech,
 )
 
 logger = logging.getLogger(__name__)
@@ -83,6 +91,42 @@ def list_models_endpoint(provider: Optional[str] = Query(None, description="Opti
         return list_models_for_provider(provider)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/tts/models", response_model=list[TTSModelInfo])
+def list_tts_models_endpoint():
+    """List available Gemini Text-to-Speech models."""
+    return list_tts_models()
+
+
+@app.get("/tts/voices", response_model=list[TTSVoiceInfo])
+def list_tts_voices_endpoint():
+    """List available Gemini Text-to-Speech voices."""
+    return list_tts_voices()
+
+
+@app.post("/tts/synthesize")
+def synthesize_speech_endpoint(request: TTSRequest):
+    """Synthesize text into speech audio and return audio stream."""
+    try:
+        audio_bytes, mime_type = synthesize_speech(
+            text=request.text,
+            voice=request.voice,
+            model=request.model,
+            language=request.language,
+        )
+        return Response(
+            content=audio_bytes,
+            media_type=mime_type,
+            headers={"Content-Disposition": "inline; filename=wisdom_speech.wav"},
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error in TTS synthesis")
+        raise HTTPException(status_code=500, detail=f"TTS synthesis failed: {exc}") from exc
 
 
 @app.post("/ask", response_model=AskResponse)

@@ -55,7 +55,50 @@ def render_rag_sources(data: dict) -> None:
                 st.json(metadata)
 
 
-def render_answer(data: dict) -> None:
+def assemble_tts_text(data: dict) -> str:
+    parts = []
+    question = data.get("question")
+    if question and question.strip():
+        parts.append(f"Câu hỏi: {question.strip()}")
+
+    summary = data.get("summary")
+    if summary and summary.strip():
+        parts.append(f"Tóm tắt: {summary.strip()}")
+
+    perspectives = data.get("perspectives") or {}
+    if not perspectives:
+        perspectives = {
+            "buddhism": data.get("buddhism"),
+            "western_philosophy": data.get("western_philosophy"),
+            "psychology": data.get("psychology"),
+        }
+
+    perspective_labels = {
+        "buddhism": "Phật giáo",
+        "western_philosophy": "Triết học phương Tây",
+        "psychology": "Tâm lý học",
+        "christianity": "Thiên Chúa giáo",
+        "eastern_philosophy": "Triết học phương Đông",
+        "natural_science": "Khoa học tự nhiên",
+    }
+
+    for p_id, p_content in perspectives.items():
+        if p_content and p_content.strip():
+            label = perspective_labels.get(p_id, p_id.replace("_", " ").title())
+            parts.append(f"Góc nhìn {label}: {p_content.strip()}")
+
+    similarities = data.get("similarities")
+    if similarities and similarities.strip():
+        parts.append(f"Điểm tương đồng: {similarities.strip()}")
+
+    differences = data.get("differences")
+    if differences and differences.strip():
+        parts.append(f"Điểm khác biệt: {differences.strip()}")
+
+    return "\n\n".join(parts)
+
+
+def render_answer(data: dict, key_prefix: str = "ans") -> None:
     summary = data.get("summary")
     if summary and summary.strip():
         st.subheader("Tóm tắt / Summary")
@@ -101,6 +144,72 @@ def render_answer(data: dict) -> None:
             st.markdown(f"- {ref}")
 
     render_rag_sources(data)
+
+    # Text-to-Speech (TTS) Control Section
+    st.divider()
+    with st.expander("🔊 Đọc câu trả lời (Text-to-Speech / Read Aloud)", expanded=False):
+        tts_col_voice, tts_col_model, tts_col_action = st.columns([2, 2, 1])
+
+        tts_voices = load_tts_voices()
+        voice_map = {
+            f"{v['name']} - {v.get('description', '')}": v["id"]
+            for v in tts_voices
+        } if tts_voices else {"Aoede": "Aoede"}
+
+        tts_models = load_tts_models()
+        model_map = {
+            m.get("display_name", m["id"]): m["id"]
+            for m in tts_models
+        } if tts_models else {"Gemini (gemini-2.0-flash)": "gemini-2.0-flash"}
+
+        with tts_col_voice:
+            selected_v_label = st.selectbox(
+                "Giọng đọc / Voice",
+                list(voice_map.keys()),
+                key=f"{key_prefix}_voice",
+            )
+            chosen_voice = voice_map[selected_v_label]
+
+        with tts_col_model:
+            selected_m_label = st.selectbox(
+                "TTS Model",
+                list(model_map.keys()),
+                key=f"{key_prefix}_model",
+            )
+            chosen_model = model_map[selected_m_label]
+
+        with tts_col_action:
+            st.write("")
+            st.write("")
+            read_clicked = st.button("🔊 Đọc / Read Aloud", key=f"{key_prefix}_read_btn")
+
+        if read_clicked:
+            text_to_speak = assemble_tts_text(data)
+            if not text_to_speak.strip():
+                st.warning("Không có nội dung văn bản để đọc.")
+            else:
+                with st.spinner("Đang tạo giọng nói qua Gemini TTS..."):
+                    try:
+                        tts_res = requests.post(
+                            f"{BACKEND_URL}/tts/synthesize",
+                            json={
+                                "text": text_to_speak,
+                                "voice": chosen_voice,
+                                "model": chosen_model,
+                                "language": data.get("language", "vi"),
+                            },
+                            timeout=60,
+                        )
+                        if tts_res.status_code == 200:
+                            st.session_state[f"{key_prefix}_audio_data"] = tts_res.content
+                        else:
+                            show_backend_error(tts_res, "Không thể tổng hợp giọng nói.")
+                    except requests.exceptions.RequestException as exc:
+                        st.error(f"Lỗi kết nối TTS: {exc}")
+
+        if f"{key_prefix}_audio_data" in st.session_state:
+            st.audio(st.session_state[f"{key_prefix}_audio_data"], format="audio/wav")
+
 
 
 def show_backend_error(response: requests.Response | None, fallback: str) -> None:
@@ -158,6 +267,32 @@ def load_models(provider: str | None = None) -> list[dict]:
     response = requests.get(f"{BACKEND_URL}/models", params=params, timeout=20)
     response.raise_for_status()
     return response.json()
+
+
+@st.cache_data(ttl=600)
+def load_tts_models() -> list[dict]:
+    try:
+        response = requests.get(f"{BACKEND_URL}/tts/models", timeout=20)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return [{"id": "gemini-2.0-flash", "display_name": "Gemini (gemini-2.0-flash)"}]
+
+
+@st.cache_data(ttl=600)
+def load_tts_voices() -> list[dict]:
+    try:
+        response = requests.get(f"{BACKEND_URL}/tts/voices", timeout=20)
+        response.raise_for_status()
+        return response.json()
+    except Exception:
+        return [
+            {"id": "Aoede", "name": "Aoede", "description": "Expressive & Melodic (Nữ)"},
+            {"id": "Kore", "name": "Kore", "description": "Warm & Natural (Nữ)"},
+            {"id": "Puck", "name": "Puck", "description": "Neutral & Clear (Nam)"},
+            {"id": "Charon", "name": "Charon", "description": "Deep & Steady (Nam)"},
+            {"id": "Fenrir", "name": "Fenrir", "description": "Authoritative & Resonant (Nam)"},
+        ]
 
 
 @st.cache_data(ttl=600)
@@ -311,7 +446,7 @@ with tab_ask:
                     timeout=120,
                 )
                 response.raise_for_status()
-                render_answer(response.json())
+                st.session_state["latest_ask_result"] = response.json()
             except requests.exceptions.ConnectionError:
                 st.error(f"Could not reach the backend. Make sure FastAPI is running at {BACKEND_URL}.")
             except requests.exceptions.Timeout:
@@ -320,6 +455,10 @@ with tab_ask:
                 show_backend_error(response, "Could not get an answer.")
             except ValueError:
                 st.error("Backend returned invalid JSON.")
+
+    if st.session_state.get("latest_ask_result"):
+        st.divider()
+        render_answer(st.session_state["latest_ask_result"], key_prefix="ask_latest")
 
 with tab_history:
     if "history_query" not in st.session_state:
@@ -370,7 +509,7 @@ with tab_history:
                 meta_parts.append(f"Time: {detail['created_at']}")
             st.caption(" | ".join(meta_parts))
 
-            render_answer(detail)
+            render_answer(detail, key_prefix=f"hist_{inquiry_id}")
 
     except requests.exceptions.ConnectionError:
         st.error(f"Could not reach the backend. Make sure FastAPI is running at {BACKEND_URL}.")

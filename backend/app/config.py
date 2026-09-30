@@ -67,6 +67,30 @@ def get_embedding_model() -> str:
     return normalize_model_id(os.getenv("EMBEDDING_MODEL", "gemini-embedding-2-preview"))
 
 
+# Gemini Text-to-Speech (TTS) configuration
+FALLBACK_GEMINI_TTS_MODELS = [
+    "gemini-2.5-flash-preview-tts",
+    "gemini-3.8-flash-tts",
+    "gemini-2.5-pro-preview-tts",
+]
+
+GEMINI_TTS_VOICES = [
+    {"id": "Aoede", "name": "Aoede", "description": "Expressive & Melodic (Nữ)"},
+    {"id": "Kore", "name": "Kore", "description": "Warm & Natural (Nữ)"},
+    {"id": "Puck", "name": "Puck", "description": "Neutral & Clear (Nam)"},
+    {"id": "Charon", "name": "Charon", "description": "Deep & Steady (Nam)"},
+    {"id": "Fenrir", "name": "Fenrir", "description": "Authoritative & Resonant (Nam)"},
+]
+
+
+def get_gemini_tts_model() -> str:
+    return normalize_model_id(os.getenv("GEMINI_TTS_MODEL", "gemini-2.5-flash-preview-tts"))
+
+
+def get_gemini_tts_voice() -> str:
+    return os.getenv("GEMINI_TTS_VOICE", "Aoede").strip()
+
+
 def normalize_model_id(model_id: str) -> str:
     """Strip 'models/' prefix so IDs match generate_content."""
     name = (model_id or "").strip()

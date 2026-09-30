@@ -159,7 +159,15 @@ WisdomLens AI allows flexible switching between AI providers:
 - **API `/ask`:** Pass `"provider": "claude"` and `"model": "claude-3-5-haiku-20241022"` in the JSON payload.
 - **Extensibility:** The provider layer is designed so future providers such as GPT-compatible APIs or open-source local models can be added with the same contract.
 
+## Feature: Text-to-Speech (TTS)
 
+WisdomLens AI includes native Text-to-Speech (TTS) using the Google Gemini API:
+- **Audio Output:** Converts synthesized wisdom answers into expressive speech on demand.
+- **Prebuilt Voices:** Choose from 5 voices (`Aoede`, `Kore`, `Puck`, `Charon`, `Fenrir`).
+- **Configuration (`.env`):**
+  - `GEMINI_TTS_MODEL`: default TTS model (e.g. `gemini-3.8-flash-tts`).
+  - `GEMINI_TTS_VOICE`: default voice (e.g. `Aoede`).
+- **Streamlit UI:** Click **"🔊 Đọc câu trả lời (Read Aloud)"** in the answer panel to generate and listen to the audio directly in your browser.
 
 ## Research Agent (Experimental)
 
