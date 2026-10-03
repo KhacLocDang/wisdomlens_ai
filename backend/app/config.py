@@ -1,5 +1,6 @@
 import os
 import socket
+from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 from dotenv import load_dotenv
@@ -89,6 +90,16 @@ def get_gemini_tts_model() -> str:
 
 def get_gemini_tts_voice() -> str:
     return os.getenv("GEMINI_TTS_VOICE", "Aoede").strip()
+
+
+def get_audio_storage_root() -> Path:
+    configured = os.getenv("AUDIO_STORAGE_ROOT")
+    if configured:
+        root = Path(configured).expanduser()
+    else:
+        root = Path(__file__).resolve().parents[2] / "data" / "audio"
+    root.mkdir(parents=True, exist_ok=True)
+    return root
 
 
 def normalize_model_id(model_id: str) -> str:

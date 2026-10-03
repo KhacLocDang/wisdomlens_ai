@@ -26,6 +26,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-wisdomlens}:${POSTGRES_PASSWORD:-wisdomlens}@postgres:5432/${POSTGRES_DB:-wisdomlens}
     volumes:
       - ./backend:/app
+      - ./data/audio:/data/audio
     depends_on:
       postgres:
         condition: service_healthy

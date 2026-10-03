@@ -7,8 +7,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.config import get_embedding_model, use_fake_answers, use_rag
+from app.config import get_audio_storage_root
 from app.database import check_db_connection, get_db
-from app.repositories.inquiry_repository import get_inquiry, list_inquiries, save_inquiry
+from app.repositories.inquiry_repository import (
+    clear_inquiry_audio,
+    get_inquiry,
+    get_inquiry_audio_file_path,
+    list_inquiries,
+    save_inquiry,
+    update_inquiry_audio,
+)
 from app.repositories.document_repository import get_document, list_documents
 from app.repositories.chunk_repository import (
     get_document_chunks_for_document,
@@ -26,6 +34,7 @@ from app.schemas import (
     DocumentChunkRetrieval,
     DocumentCreate,
     DocumentSummary,
+    InquiryAudioResponse,
     InquiryDetail,
     InquirySummary,
     ModelInfo,
@@ -432,6 +441,11 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
     if inquiry is None:
         raise HTTPException(status_code=404, detail="Inquiry not found")
 
+    audio_filename = inquiry.audio_filename or None
+    audio_available = bool(
+        audio_filename and get_inquiry_audio_file_path(inquiry_id, storage_root=get_audio_storage_root()).exists()
+    )
+
     return InquiryDetail(
         id=inquiry.id,
         question=inquiry.question,
@@ -445,4 +459,100 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
         created_at=inquiry.created_at,
         source=inquiry.source,
         model=inquiry.model,
+        audio_available=audio_available,
+        audio_filename=audio_filename,
+        audio_mime_type=inquiry.audio_mime_type,
+        audio_voice=inquiry.audio_voice,
+        audio_model=inquiry.audio_model,
+    )
+
+
+@app.post("/inquiries/{inquiry_id}/audio", response_model=InquiryAudioResponse)
+def save_inquiry_audio_endpoint(
+    inquiry_id: int,
+    request: TTSRequest,
+    db: Session = Depends(get_db),
+):
+    inquiry = get_inquiry(db, inquiry_id)
+    if inquiry is None:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    try:
+        audio_bytes, mime_type = synthesize_speech(
+            text=request.text,
+            voice=request.voice,
+            model=request.model,
+            language=request.language,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Unexpected error in inquiry audio generation")
+        raise HTTPException(status_code=500, detail=f"Audio generation failed: {exc}") from exc
+
+    root = get_audio_storage_root()
+    file_path = root / f"inquiry_{inquiry_id}.wav"
+    file_path.parent.mkdir(parents=True, exist_ok=True)
+    file_path.write_bytes(audio_bytes)
+
+    updated = update_inquiry_audio(
+        db,
+        inquiry,
+        audio_filename=file_path.name,
+        audio_mime_type=mime_type,
+        audio_voice=request.voice,
+        audio_model=request.model,
+    )
+    return InquiryAudioResponse(
+        inquiry_id=inquiry_id,
+        audio_available=True,
+        audio_filename=updated.audio_filename,
+        audio_mime_type=updated.audio_mime_type,
+        audio_voice=updated.audio_voice,
+        audio_model=updated.audio_model,
+        audio_created_at=getattr(updated, "audio_created_at", None),
+    )
+
+
+@app.get("/inquiries/{inquiry_id}/audio")
+def get_inquiry_audio_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
+    inquiry = get_inquiry(db, inquiry_id)
+    if inquiry is None:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+    if not inquiry.audio_filename:
+        raise HTTPException(status_code=404, detail="Audio not found for this inquiry")
+
+    file_path = get_inquiry_audio_file_path(inquiry_id, storage_root=get_audio_storage_root())
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Audio file missing on disk")
+
+    mime_type = inquiry.audio_mime_type or "audio/wav"
+    return Response(
+        content=file_path.read_bytes(),
+        media_type=mime_type,
+        headers={"Content-Disposition": f"inline; filename={inquiry.audio_filename}"},
+    )
+
+
+@app.delete("/inquiries/{inquiry_id}/audio", response_model=InquiryAudioResponse)
+def delete_inquiry_audio_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
+    inquiry = get_inquiry(db, inquiry_id)
+    if inquiry is None:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    file_path = get_inquiry_audio_file_path(inquiry_id, storage_root=get_audio_storage_root())
+    if file_path.exists():
+        file_path.unlink(missing_ok=True)
+
+    updated = clear_inquiry_audio(db, inquiry)
+    return InquiryAudioResponse(
+        inquiry_id=inquiry_id,
+        audio_available=False,
+        audio_filename=None,
+        audio_mime_type=None,
+        audio_voice=None,
+        audio_model=None,
+        audio_created_at=None,
     )

@@ -87,6 +87,21 @@ class InquiryDetail(AskResponse):
     created_at: datetime
     source: str
     model: str | None = None
+    audio_available: bool = False
+    audio_filename: str | None = None
+    audio_mime_type: str | None = None
+    audio_voice: str | None = None
+    audio_model: str | None = None
+
+
+class InquiryAudioResponse(BaseModel):
+    inquiry_id: int
+    audio_available: bool
+    audio_filename: str | None = None
+    audio_mime_type: str | None = None
+    audio_voice: str | None = None
+    audio_model: str | None = None
+    audio_created_at: datetime | None = None
 
 
 class DocumentCreate(BaseModel):

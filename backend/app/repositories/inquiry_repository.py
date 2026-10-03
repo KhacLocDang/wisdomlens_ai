@@ -1,6 +1,9 @@
+from datetime import datetime, timezone
+
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.config import get_audio_storage_root
 from app.models.inquiry import Inquiry
 
 
@@ -56,3 +59,40 @@ def list_inquiries(db: Session, limit: int = 20, q: str | None = None) -> list[I
 
 def get_inquiry(db: Session, inquiry_id: int) -> Inquiry | None:
     return db.query(Inquiry).filter(Inquiry.id == inquiry_id).first()
+
+
+def get_inquiry_audio_file_path(inquiry_id: int, *, storage_root=None):
+    root = storage_root or get_audio_storage_root()
+    return root / f"inquiry_{inquiry_id}.wav"
+
+
+def update_inquiry_audio(
+    db: Session,
+    inquiry: Inquiry,
+    *,
+    audio_filename: str,
+    audio_mime_type: str,
+    audio_voice: str | None,
+    audio_model: str | None,
+) -> Inquiry:
+    inquiry.audio_filename = audio_filename
+    inquiry.audio_mime_type = audio_mime_type
+    inquiry.audio_voice = audio_voice
+    inquiry.audio_model = audio_model
+    inquiry.audio_created_at = datetime.now(timezone.utc)
+    db.add(inquiry)
+    db.commit()
+    db.refresh(inquiry)
+    return inquiry
+
+
+def clear_inquiry_audio(db: Session, inquiry: Inquiry) -> Inquiry:
+    inquiry.audio_filename = None
+    inquiry.audio_mime_type = None
+    inquiry.audio_voice = None
+    inquiry.audio_model = None
+    inquiry.audio_created_at = None
+    db.add(inquiry)
+    db.commit()
+    db.refresh(inquiry)
+    return inquiry

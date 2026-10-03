@@ -16,7 +16,9 @@ $ErrorActionPreference = "Stop"
 # ── Configuration ────────────────────────────────────────────────────────────
 $ProjectRoot  = Split-Path -Parent $PSScriptRoot
 $BackupsDir   = Join-Path $ProjectRoot "backups"
+$AudioSourceDir = Join-Path $ProjectRoot "data\audio"
 $OneDriveDir  = Join-Path $env:ONEDRIVE "WisdomLens_Backups"
+$OneDriveAudioDir = Join-Path $OneDriveDir "audio"
 $RetainDays   = 14          # delete local backups older than this
 $RetainOneDrive = 30        # delete OneDrive backups older than this
 $ComposeFile  = Join-Path $ProjectRoot "docker-compose.yml"
@@ -50,7 +52,43 @@ $OneDrivePath = Join-Path $OneDriveDir $FileName
 Copy-Item -Path $LocalPath -Destination $OneDrivePath
 Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Copied to OneDrive: $OneDrivePath" -ForegroundColor Green
 
-# 4. Remove old local backups
+# 4. Copy only audio files referenced by the current database to OneDrive
+$AudioQuery = @"
+SELECT DISTINCT audio_filename
+FROM inquiries
+WHERE audio_filename IS NOT NULL AND btrim(audio_filename) <> ''
+ORDER BY audio_filename;
+"@
+$AudioFilenames = @(docker compose -f $ComposeFile exec -T postgres `
+    psql -U $DbUser -d $DbName -At -c $AudioQuery)
+if ($LASTEXITCODE -ne 0) {
+    throw "Could not read audio filenames from the database."
+}
+$AudioFilenames = @($AudioFilenames | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+
+if ($AudioFilenames.Count -gt 0) {
+    New-Item -ItemType Directory -Force -Path $OneDriveAudioDir | Out-Null
+
+    foreach ($AudioFilename in $AudioFilenames) {
+        if ([System.IO.Path]::GetFileName($AudioFilename) -ne $AudioFilename -or $AudioFilename -in @('.', '..')) {
+            throw "Unexpected audio filename in database: $AudioFilename"
+        }
+
+        $AudioSourcePath = Join-Path $AudioSourceDir $AudioFilename
+        if (-not (Test-Path -LiteralPath $AudioSourcePath -PathType Leaf)) {
+            throw "Audio referenced by the database is missing: $AudioSourcePath"
+        }
+
+        $AudioDestinationPath = Join-Path $OneDriveAudioDir $AudioFilename
+        Copy-Item -LiteralPath $AudioSourcePath -Destination $AudioDestinationPath -Force
+    }
+
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Copied $($AudioFilenames.Count) database-linked audio file(s) to OneDrive: $OneDriveAudioDir" -ForegroundColor Green
+} else {
+    Write-Host "[$(Get-Date -Format 'HH:mm:ss')] No audio files referenced by the database; skipping audio backup."
+}
+
+# 5. Remove old local backups
 $OldLocal = @(Get-ChildItem -Path $BackupsDir -Filter "wisdomlens_*.sql" |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetainDays) })
 if ($OldLocal.Count -gt 0) {
@@ -58,7 +96,7 @@ if ($OldLocal.Count -gt 0) {
     Write-Host "[$(Get-Date -Format 'HH:mm:ss')] Removed $($OldLocal.Count) old local backup(s)."
 }
 
-# 5. Remove old OneDrive backups
+# 6. Remove old OneDrive backups
 $OldOneDrive = @(Get-ChildItem -Path $OneDriveDir -Filter "wisdomlens_*.sql" |
     Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-$RetainOneDrive) })
 if ($OldOneDrive.Count -gt 0) {

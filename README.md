@@ -169,6 +169,18 @@ WisdomLens AI includes native Text-to-Speech (TTS) using the Google Gemini API:
   - `GEMINI_TTS_VOICE`: default voice (e.g. `Aoede`).
 - **Streamlit UI:** Click **"🔊 Đọc câu trả lời (Read Aloud)"** in the answer panel to generate and listen to the audio directly in your browser.
 
+### Saved Audio for Answers
+
+Audio can also be saved with an inquiry from the History answer view:
+
+- **Create and replay:** Generate audio on demand, then play the saved file later from that inquiry.
+- **Storage:** Audio files are stored outside PostgreSQL at `data/audio/inquiry_<id>.wav`. The inquiry row stores the filename, MIME type, voice, TTS model, and creation time.
+- **Docker persistence:** Compose mounts `./data/audio` on the host at `/data/audio` in the backend container, so container recreation does not discard the audio files.
+- **Delete:** The answer's delete control removes the application file and clears its metadata from PostgreSQL. It does not delete copies already backed up to OneDrive.
+- **Scope:** Saved-audio controls are available for inquiries opened from History. The immediate `/ask` response does not include its saved inquiry ID yet.
+
+The audio API is available at `POST /inquiries/{inquiry_id}/audio` to synthesize and save, `GET` on the same path to stream the saved file, and `DELETE` to remove the application copy.
+
 ## Research Agent (Experimental)
 
 A standalone exploratory tool (`analysis/research_agent.py`) that reads saved inquiries from PostgreSQL (read-only) and uses Gemini to identify recurring life themes, compare perspective patterns, and generate hypotheses for further research. Reports are saved to `analysis/research_report.md`.
@@ -210,16 +222,19 @@ docker compose exec backend alembic upgrade head
 
 ## Backup and restore
 
-### Backup (pg_dump → local + OneDrive)
+### Backup (database and audio → local + OneDrive)
 
 ```powershell
 .\scripts\backup.ps1
 ```
 
-Saves a `.sql` file to `backups/` and copies it to `%USERPROFILE%\OneDrive\WisdomLens_Backups\`.
+Saves a `.sql` file to `backups/` and copies it to `%USERPROFILE%\OneDrive\WisdomLens_Backups\`. It also copies audio files referenced by the current database into `%USERPROFILE%\OneDrive\WisdomLens_Backups\audio\`.
 
 - Local backups: kept for **14 days**
-- OneDrive backups: kept for **30 days**
+- OneDrive SQL backups: kept for **30 days**
+- OneDrive audio: stored in one fixed folder and not automatically deleted or age-pruned. Files with the same name are updated on the next backup; old audio copies are left for manual cleanup.
+
+The script reads distinct `audio_filename` values from `inquiries` and copies only those files from `data/audio`. If a referenced file is missing locally, the script stops and reports the missing file.
 
 To schedule daily backups automatically, add the script to Windows Task Scheduler:
 

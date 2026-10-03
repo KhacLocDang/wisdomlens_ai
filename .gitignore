@@ -8,3 +8,5 @@ docs/
 backups/
 analysis/*.md
 verify_output.txt
+data/audio
+data/private

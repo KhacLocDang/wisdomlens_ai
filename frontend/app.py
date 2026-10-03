@@ -211,6 +211,92 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
                     except requests.exceptions.RequestException as exc:
                         st.error(f"Lỗi kết nối TTS: {exc}")
 
+        inquiry_id = data.get("id")
+        if inquiry_id is not None:
+            if data.get("audio_available"):
+                play_col, delete_col = st.columns(2)
+                with play_col:
+                    if st.button("▶️ Phát audio đã lưu", key=f"{key_prefix}_play_saved"):
+                        try:
+                            saved_audio = requests.get(
+                                f"{BACKEND_URL}/inquiries/{inquiry_id}/audio",
+                                timeout=30,
+                            )
+                            saved_audio.raise_for_status()
+                            st.session_state[f"{key_prefix}_saved_audio_data"] = saved_audio.content
+                        except requests.exceptions.RequestException as exc:
+                            st.error(f"Không thể tải audio đã lưu: {exc}")
+
+                confirm_delete_key = f"{key_prefix}_confirm_delete_audio"
+                with delete_col:
+                    if st.button("🗑️ Xóa audio", key=f"{key_prefix}_delete_audio"):
+                        st.session_state[confirm_delete_key] = True
+
+                if st.session_state.get(confirm_delete_key):
+                    st.warning("Bạn có chắc muốn xóa audio đã lưu cho câu trả lời này?")
+                    confirm_col, cancel_col = st.columns(2)
+                    with confirm_col:
+                        confirm_delete = st.button(
+                            "Xác nhận xóa audio",
+                            key=f"{key_prefix}_confirm_delete_audio_btn",
+                        )
+                    with cancel_col:
+                        cancel_delete = st.button(
+                            "Hủy",
+                            key=f"{key_prefix}_cancel_delete_audio_btn",
+                        )
+
+                    if confirm_delete:
+                        try:
+                            delete_response = requests.delete(
+                                f"{BACKEND_URL}/inquiries/{inquiry_id}/audio",
+                                timeout=30,
+                            )
+                            if delete_response.status_code == 200:
+                                data["audio_available"] = False
+                                data["audio_filename"] = None
+                                st.session_state.pop(f"{key_prefix}_saved_audio_data", None)
+                                st.session_state.pop(confirm_delete_key, None)
+                                st.success("Đã xóa audio đã lưu.")
+                            else:
+                                show_backend_error(delete_response, "Không thể xóa audio.")
+                        except requests.exceptions.RequestException as exc:
+                            st.error(f"Lỗi kết nối khi xóa audio: {exc}")
+                    elif cancel_delete:
+                        st.session_state.pop(confirm_delete_key, None)
+
+                if (
+                    data.get("audio_available")
+                    and f"{key_prefix}_saved_audio_data" in st.session_state
+                ):
+                    st.audio(st.session_state[f"{key_prefix}_saved_audio_data"], format="audio/wav")
+            if not data.get("audio_available"):
+                save_clicked = st.button("💾 Lưu audio cho câu trả lời", key=f"{key_prefix}_save_audio")
+                if save_clicked:
+                    text_to_speak = assemble_tts_text(data)
+                    if not text_to_speak.strip():
+                        st.warning("Không có nội dung văn bản để đọc để lưu.")
+                    else:
+                        try:
+                            save_res = requests.post(
+                                f"{BACKEND_URL}/inquiries/{inquiry_id}/audio",
+                                json={
+                                    "text": text_to_speak,
+                                    "voice": chosen_voice,
+                                    "model": chosen_model,
+                                    "language": data.get("language", "vi"),
+                                },
+                                timeout=60,
+                            )
+                            if save_res.status_code == 200:
+                                st.success("Đã lưu audio cho câu trả lời này.")
+                                data["audio_available"] = True
+                                data["audio_filename"] = save_res.json().get("audio_filename")
+                            else:
+                                show_backend_error(save_res, "Không thể lưu audio.")
+                        except requests.exceptions.RequestException as exc:
+                            st.error(f"Lỗi khi lưu audio: {exc}")
+
         if f"{key_prefix}_audio_data" in st.session_state:
             st.audio(st.session_state[f"{key_prefix}_audio_data"], format="audio/wav")
 
