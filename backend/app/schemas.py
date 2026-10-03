@@ -79,6 +79,9 @@ class InquirySummary(BaseModel):
     language: str
     created_at: datetime
     source: str
+    answer_type: str = "generated"
+    ai_source: str | None = None
+    topics: list[str] = Field(default_factory=list)
 
 
 class InquiryDetail(AskResponse):
@@ -92,6 +95,31 @@ class InquiryDetail(AskResponse):
     audio_mime_type: str | None = None
     audio_voice: str | None = None
     audio_model: str | None = None
+    answer_type: str = "generated"
+    manual_fields: list[str] = Field(default_factory=list)
+    ai_source: str | None = None
+    manual_system_prompt: str | None = None
+    manual_sections: list[dict[str, str]] = Field(default_factory=list)
+    topics: list[str] = Field(default_factory=list)
+
+
+class ManualResearchCreateRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=10000)
+    answer: str = Field(..., min_length=1, max_length=100000)
+    language: Language = "vi"
+    ai_source: str = Field(..., min_length=1, max_length=20)
+    model: str = Field(..., min_length=1, max_length=100)
+    topics: list[str] = Field(default_factory=list, max_length=7)
+
+
+class ManualResearchTopicOption(BaseModel):
+    key: str
+    label: str
+
+
+class ManualResearchConfigResponse(BaseModel):
+    system_prompt: str
+    topics: list[ManualResearchTopicOption]
 
 
 class InquiryAudioResponse(BaseModel):

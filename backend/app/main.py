@@ -27,6 +27,7 @@ from app.rag.document_loader import extract_text_from_bytes, ingest_document
 from app.rag.embedding import generate_embedding
 from app.rag.retriever import retrieve_similar_chunks
 from app.services.rag_service import build_rag_context
+from app.services.manual_research import get_manual_research_config, validate_manual_research_topics
 from app.schemas import (
     AskRequest,
     AskResponse,
@@ -37,6 +38,8 @@ from app.schemas import (
     InquiryAudioResponse,
     InquiryDetail,
     InquirySummary,
+    ManualResearchConfigResponse,
+    ManualResearchCreateRequest,
     ModelInfo,
     EmbeddingRefreshResult,
     TTSModelInfo,
@@ -430,9 +433,79 @@ def list_inquiries_endpoint(
             language=inquiry.language,
             created_at=inquiry.created_at,
             source=inquiry.source,
+            answer_type=inquiry.answer_type or "generated",
+            ai_source=inquiry.ai_source,
+            topics=getattr(inquiry, "topics", None) or [],
         )
         for inquiry in inquiries
     ]
+
+
+@app.get("/manual-research/config", response_model=ManualResearchConfigResponse)
+def manual_research_config_endpoint():
+    return get_manual_research_config()
+
+
+@app.post("/manual-research", response_model=InquiryDetail)
+def create_manual_research_endpoint(
+    request: ManualResearchCreateRequest,
+    db: Session = Depends(get_db),
+):
+    question = request.question.strip()
+    answer_text = request.answer.strip()
+    ai_source = request.ai_source.strip()
+    model = request.model.strip()
+    if not question or not answer_text or not ai_source or not model:
+        raise HTTPException(status_code=400, detail="Question, answer, AI source, and model are required.")
+    try:
+        topics = validate_manual_research_topics(request.topics)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    answer = {
+        "question": question,
+        "summary": answer_text,
+        "perspectives": {},
+        "similarities": "",
+        "differences": "",
+        "references": [],
+        "rag_sources": [],
+    }
+    inquiry = save_inquiry(
+        db,
+        answer,
+        language=request.language,
+        source=ai_source,
+        model=model,
+        rag_sources=[],
+        answer_type="manual_answer",
+        topics=topics,
+    )
+    return InquiryDetail(
+        id=inquiry.id,
+        question=inquiry.question,
+        summary=inquiry.summary,
+        perspectives=inquiry.perspectives or {},
+        similarities=inquiry.similarities,
+        differences=inquiry.differences,
+        references=inquiry.references or [],
+        rag_sources=inquiry.rag_sources or [],
+        language=inquiry.language,
+        created_at=inquiry.created_at,
+        source=inquiry.source,
+        model=inquiry.model,
+        audio_available=False,
+        audio_filename=inquiry.audio_filename,
+        audio_mime_type=inquiry.audio_mime_type,
+        audio_voice=inquiry.audio_voice,
+        audio_model=inquiry.audio_model,
+        answer_type=inquiry.answer_type,
+        manual_fields=[],
+        ai_source=None,
+        manual_system_prompt=None,
+        manual_sections=[],
+        topics=getattr(inquiry, "topics", None) or [],
+    )
 
 
 @app.get("/inquiries/{inquiry_id}", response_model=InquiryDetail)
@@ -464,6 +537,12 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
         audio_mime_type=inquiry.audio_mime_type,
         audio_voice=inquiry.audio_voice,
         audio_model=inquiry.audio_model,
+        answer_type=inquiry.answer_type or "generated",
+        manual_fields=inquiry.manual_fields or [],
+        ai_source=inquiry.ai_source,
+        manual_system_prompt=inquiry.manual_system_prompt,
+        manual_sections=inquiry.manual_sections or [],
+        topics=getattr(inquiry, "topics", None) or [],
     )
 
 

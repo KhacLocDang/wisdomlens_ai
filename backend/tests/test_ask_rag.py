@@ -218,6 +218,15 @@ def test_inquiry_detail_returns_saved_rag_sources(monkeypatch):
         language = "en"
         source = "gemini"
         model = "gemini-2.5-flash"
+        answer_type = "generated"
+        manual_fields = []
+        ai_source = None
+        manual_system_prompt = None
+        manual_sections = []
+        audio_filename = None
+        audio_mime_type = None
+        audio_voice = None
+        audio_model = None
         created_at = "2026-08-15T00:00:00+00:00"
 
     monkeypatch.setattr("app.main.get_inquiry", lambda db, inquiry_id: SavedInquiry())

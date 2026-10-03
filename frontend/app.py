@@ -19,6 +19,8 @@ PERSPECTIVES = {
     "eastern_philosophy": {"vi": "Triết học phương Đông / Eastern Philosophy"},
     "natural_science": {"vi": "Khoa học tự nhiên / Natural Science"},
 }
+TOPIC_LABELS = {key: value["vi"] for key, value in PERSPECTIVES.items()}
+TOPIC_LABELS["other"] = "Khác"
 
 
 def render_rag_sources(data: dict) -> None:
@@ -61,7 +63,34 @@ def assemble_tts_text(data: dict) -> str:
     if question and question.strip():
         parts.append(f"Câu hỏi: {question.strip()}")
 
+    if data.get("answer_type") == "manual_research" and data.get("manual_sections"):
+        field_labels = {
+            key: value["vi"] for key, value in PERSPECTIVES.items()
+        }
+        manual_sections = data.get("manual_sections") or []
+        field_order = data.get("manual_fields") or list(
+            dict.fromkeys(section.get("field_key") for section in manual_sections)
+        )
+        for field_key in field_order:
+            field_sections = [
+                section for section in manual_sections
+                if section.get("field_key") == field_key and (section.get("response") or "").strip()
+            ]
+            if not field_sections:
+                continue
+            field_label = field_labels.get(field_key, field_key.replace("_", " ").title())
+            parts.append(f"Góc nhìn {field_label}:")
+            for section in field_sections:
+                title = section.get("title") or section.get("key", "")
+                parts.append(f"{title}: {section['response'].strip()}")
+        return "\n\n".join(parts)
+
     summary = data.get("summary")
+    if data.get("answer_type") == "manual_answer":
+        if summary and summary.strip():
+            parts.append(f"Câu trả lời: {summary.strip()}")
+        return "\n\n".join(parts)
+
     if summary and summary.strip():
         parts.append(f"Tóm tắt: {summary.strip()}")
 
@@ -105,7 +134,8 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
 
     summary = data.get("summary")
     if summary and summary.strip():
-        st.subheader("Tóm tắt / Summary")
+        heading = "Câu trả lời" if data.get("answer_type") == "manual_answer" else "Tóm tắt / Summary"
+        st.subheader(heading)
         st.write(summary)
 
     perspectives = data.get("perspectives") or {}
@@ -125,21 +155,46 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
         "natural_science": "Khoa học tự nhiên / Natural Science",
     }
 
-    for p_id, p_content in perspectives.items():
-        if p_content and p_content.strip():
-            label = perspective_labels.get(p_id, p_id.replace("_", " ").title())
+    if data.get("answer_type") == "manual_research" and data.get("manual_sections"):
+        manual_sections = data.get("manual_sections") or []
+        field_order = data.get("manual_fields") or list(
+            dict.fromkeys(section.get("field_key") for section in manual_sections)
+        )
+        for field_key in field_order:
+            field_sections = [section for section in manual_sections if section.get("field_key") == field_key]
+            if not field_sections:
+                continue
+            label = perspective_labels.get(field_key, field_key.replace("_", " ").title())
             st.subheader(label)
-            st.write(p_content)
+            for section in field_sections:
+                response_text = (section.get("response") or "").strip()
+                if response_text:
+                    st.markdown(f"**{section.get('title') or section.get('key', '')}**")
+                    st.write(response_text)
+    else:
+        perspectives = data.get("perspectives") or {}
+        if not perspectives:
+            perspectives = {
+                "buddhism": data.get("buddhism"),
+                "western_philosophy": data.get("western_philosophy"),
+                "psychology": data.get("psychology"),
+            }
 
-    similarities = data.get("similarities")
-    if similarities and similarities.strip():
-        st.subheader("Điểm tương đồng / Similarities")
-        st.write(similarities)
+        for p_id, p_content in perspectives.items():
+            if p_content and p_content.strip():
+                label = perspective_labels.get(p_id, p_id.replace("_", " ").title())
+                st.subheader(label)
+                st.write(p_content)
 
-    differences = data.get("differences")
-    if differences and differences.strip():
-        st.subheader("Điểm khác biệt / Differences")
-        st.write(differences)
+        similarities = data.get("similarities")
+        if similarities and similarities.strip():
+            st.subheader("Điểm tương đồng / Similarities")
+            st.write(similarities)
+
+        differences = data.get("differences")
+        if differences and differences.strip():
+            st.subheader("Điểm khác biệt / Differences")
+            st.write(differences)
 
     refs = data.get("references") or []
     if refs:
@@ -408,6 +463,136 @@ def load_retrieve_results(query: str, limit: int) -> list[dict]:
     return response.json()
 
 
+@st.cache_data(ttl=600)
+def load_manual_research_config() -> dict:
+    response = requests.get(f"{BACKEND_URL}/manual-research/config", timeout=20)
+    response.raise_for_status()
+    return response.json()
+
+
+def build_manual_research_prompt(
+    question: str,
+    language: str,
+    system_prompt: str,
+) -> str:
+    language_name = "Tiếng Việt" if language == "vi" else "English"
+    return (
+        f"{system_prompt.strip()}\n\n"
+        "---\n\n"
+        f"Câu hỏi nghiên cứu: {question.strip()}\n"
+        f"Ngôn ngữ trả lời: {language_name}.\n"
+        "Hãy trả lời thành một nội dung hoàn chỉnh. Nếu câu hỏi yêu cầu nhiều góc nhìn, "
+        "hãy phân biệt rõ các góc nhìn trong cùng câu trả lời."
+    )
+
+
+def render_manual_research_tab() -> None:
+    st.header("Nghiên cứu AI thủ công")
+    try:
+        config = load_manual_research_config()
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Không thể tải cấu hình nghiên cứu: {exc}")
+        return
+
+    question = st.text_area(
+        "Câu hỏi nghiên cứu",
+        placeholder="Nhập câu hỏi cần nghiên cứu. Bạn có thể yêu cầu Claude phân tích qua nhiều góc nhìn.",
+        height=100,
+        key="manual_research_question",
+    )
+    language_label = st.selectbox(
+        "Ngôn ngữ câu trả lời",
+        list(LANGUAGE_OPTIONS),
+        key="manual_research_language_label",
+    )
+    language = LANGUAGE_OPTIONS[language_label]
+
+    topic_options = config.get("topics", [])
+    topic_labels = {topic["key"]: topic["label"] for topic in topic_options}
+    selected_topics = st.multiselect(
+        "Nhãn chủ đề (không bắt buộc)",
+        options=list(topic_labels),
+        format_func=lambda key: topic_labels[key],
+        key="manual_research_topics",
+    )
+
+    system_prompt = st.text_area(
+        "System Prompt / Hướng dẫn chung",
+        value=config["system_prompt"],
+        height=150,
+        key="manual_research_system_prompt",
+    )
+    st.caption("Copy hướng dẫn chung này vào Project Instructions hoặc gửi làm tin nhắn đầu tiên trong Claude Web.")
+    st.code(system_prompt, language=None)
+
+    if question.strip():
+        combined_prompt = build_manual_research_prompt(
+            question,
+            language,
+            system_prompt,
+        )
+        st.subheader("Prompt hoàn chỉnh gửi Claude Web")
+        st.caption("Copy toàn bộ prompt này vào Claude Web; nó đã bao gồm System Prompt và câu hỏi.")
+        st.code(combined_prompt, language=None)
+
+    answer_text = st.text_area(
+        "Câu trả lời từ Claude Web",
+        placeholder="Dán toàn bộ câu trả lời vào đây...",
+        height=280,
+        key="manual_research_answer",
+    )
+
+    source_col, model_col = st.columns(2)
+    with source_col:
+        ai_source = st.text_input("Nguồn AI", value="Claude Web", key="manual_research_ai_source")
+    with model_col:
+        model = st.text_input(
+            "Model name",
+            placeholder="Ví dụ: Claude Sonnet",
+            key="manual_research_model",
+        )
+
+    if st.button("Lưu thành Answer", type="primary", key="save_manual_research"):
+        if not question.strip():
+            st.warning("Bạn cần nhập câu hỏi nghiên cứu.")
+        elif not answer_text.strip():
+            st.warning("Bạn cần dán câu trả lời từ Claude Web.")
+        elif not ai_source.strip() or not model.strip():
+            st.warning("Bạn cần nhập AI source và model name.")
+        else:
+            try:
+                response = requests.post(
+                    f"{BACKEND_URL}/manual-research",
+                    json={
+                        "question": question.strip(),
+                        "answer": answer_text.strip(),
+                        "language": language,
+                        "ai_source": ai_source.strip(),
+                        "model": model.strip(),
+                        "topics": selected_topics,
+                    },
+                    timeout=30,
+                )
+                if response.status_code == 200:
+                    st.session_state["latest_manual_research_answer"] = response.json()
+                    st.success(f"Đã lưu Answer #{response.json()['id']}.")
+                else:
+                    show_backend_error(response, "Không thể lưu nghiên cứu AI thủ công.")
+            except requests.exceptions.RequestException as exc:
+                st.error(f"Lỗi kết nối khi lưu Answer: {exc}")
+
+    saved_answer = st.session_state.get("latest_manual_research_answer")
+    if saved_answer:
+        st.divider()
+        st.subheader(f"Answer #{saved_answer['id']} vừa lưu")
+        st.caption("Answer này cũng đã có trong tab Lịch sử.")
+        saved_topics = saved_answer.get("topics") or []
+        if saved_topics:
+            saved_topic_labels = [topic_labels.get(topic, topic) for topic in saved_topics]
+            st.caption("Nhãn chủ đề: " + ", ".join(saved_topic_labels))
+        render_answer(saved_answer, key_prefix=f"manual_{saved_answer['id']}")
+
+
 def refresh_missing_embeddings(document_id: int | None = None, limit: int | None = None) -> dict:
     params = {}
     if document_id is not None and document_id > 0:
@@ -431,8 +616,8 @@ st.markdown(
     "Góc nhìn có cấu trúc, không phải tư vấn cá nhân hay trị liệu."
 )
 
-tab_ask, tab_history, tab_retrieve, tab_documents = st.tabs(
-    ["Hỏi", "Lịch sử", "Semantic Retrieval", "Tài liệu"]
+tab_ask, tab_history, tab_manual_research, tab_retrieve, tab_documents = st.tabs(
+    ["Hỏi", "Lịch sử", "Nghiên cứu AI thủ công", "Semantic Retrieval", "Tài liệu"]
 )
 
 with tab_ask:
@@ -589,6 +774,14 @@ with tab_history:
             detail = detail_response.json()
             st.markdown(f"**Question:** {detail.get('question', '')}")
             meta_parts = [f"Source: {detail.get('source', '')}"]
+            if detail.get("ai_source"):
+                meta_parts.append(f"AI source: {detail['ai_source']}")
+            if detail.get("answer_type") in {"manual_research", "manual_answer"}:
+                meta_parts.append("Manual research")
+            topics = detail.get("topics") or []
+            if topics:
+                topic_names = [TOPIC_LABELS.get(topic, topic) for topic in topics]
+                meta_parts.append("Chủ đề: " + ", ".join(topic_names))
             lang_code = detail.get("language", "")
             if lang_code:
                 lang_display = "Tiếng Việt" if lang_code == "vi" else "English"
@@ -607,6 +800,9 @@ with tab_history:
         st.error("The backend took too long to respond. Please try again.")
     except requests.exceptions.HTTPError:
         show_backend_error(response, "Could not load history.")
+
+with tab_manual_research:
+    render_manual_research_tab()
 
 with tab_retrieve:
     st.header("Semantic Retrieval")

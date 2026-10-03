@@ -19,6 +19,8 @@ def save_inquiry(
     source: str,
     model: str | None = None,
     rag_sources: list[dict] | None = None,
+    answer_type: str = "generated",
+    topics: list[str] | None = None,
 ) -> Inquiry:
     perspectives = answer.get("perspectives") or {}
     inquiry = Inquiry(
@@ -35,6 +37,8 @@ def save_inquiry(
         language=language,
         source=source,
         model=model,
+        answer_type=answer_type,
+        topics=topics or [],
     )
     db.add(inquiry)
     db.commit()
