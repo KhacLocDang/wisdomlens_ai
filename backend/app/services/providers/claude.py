@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from pydantic import ValidationError
+
 from app.services.providers.base import BaseLLMProvider
 from app.services.providers.common import (
     ALL_DEFAULT_PERSPECTIVES,
@@ -92,7 +94,27 @@ class ClaudeProvider(BaseLLMProvider):
             raise ValueError("Claude returned an empty response")
 
         cleaned = clean_json_string(raw_text)
-        fields = WisdomFields.model_validate_json(cleaned)
+        try:
+            fields = WisdomFields.model_validate_json(cleaned)
+        except ValidationError:
+            stop_reason = getattr(response, "stop_reason", None)
+            if stop_reason == "max_tokens":
+                warning = (
+                    "Claude reached its output token limit. The response may be incomplete; "
+                    "the raw output has been preserved in the summary."
+                )
+            else:
+                warning = (
+                    "Claude returned a response that could not be parsed into the expected "
+                    "answer format. The raw output has been preserved in the summary."
+                )
+            return AskResponse(
+                question=question,
+                summary=raw_text,
+                generation_warning=warning,
+                rag_sources=rag_sources,
+            ).model_dump()
+
         return AskResponse(
             question=question,
             rag_sources=rag_sources,

@@ -65,6 +65,7 @@ class RagSource(BaseModel):
 class AskResponse(BaseModel):
     question: str
     summary: str
+    generation_warning: str | None = None
     perspectives: dict[str, str] = Field(default_factory=dict)
     similarities: str = ""
     differences: str = ""

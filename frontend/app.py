@@ -99,6 +99,10 @@ def assemble_tts_text(data: dict) -> str:
 
 
 def render_answer(data: dict, key_prefix: str = "ans") -> None:
+    generation_warning = data.get("generation_warning")
+    if generation_warning:
+        st.warning(generation_warning)
+
     summary = data.get("summary")
     if summary and summary.strip():
         st.subheader("Tóm tắt / Summary")

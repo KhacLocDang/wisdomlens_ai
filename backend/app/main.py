@@ -196,8 +196,18 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
                 detail=f"{prov_label} request failed: {exc}",
             ) from exc
 
+    answer_to_save = answer
+    if answer.get("generation_warning"):
+        answer_to_save = {
+            **answer,
+            "summary": (
+                "[Response could not be parsed; raw model output follows]\n\n"
+                f"{answer['summary']}"
+            ),
+        }
+
     try:
-        save_inquiry(db, answer, language=language, source=source, model=model, rag_sources=rag_sources)
+        save_inquiry(db, answer_to_save, language=language, source=source, model=model, rag_sources=rag_sources)
     except Exception:
         logger.exception("Failed to save inquiry to database")
 
