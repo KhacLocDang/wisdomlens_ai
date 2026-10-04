@@ -16,6 +16,7 @@ def test_ask_without_rag_uses_original_flow(monkeypatch):
 
     def fake_generate_gemini_answer(question, language, model=None, rag_context=None, **kwargs):
         captured["rag_context"] = rag_context
+        captured["sentences_per_section"] = kwargs.get("sentences_per_section")
         return {
             "question": question,
             "summary": "summary",
@@ -40,12 +41,16 @@ def test_ask_without_rag_uses_original_flow(monkeypatch):
     monkeypatch.setattr("app.main.generate_gemini_answer", fake_generate_gemini_answer)
     monkeypatch.setattr("app.main.save_inquiry", fake_save_inquiry)
 
-    response = client.post("/ask", json={"question": "Why are humans afraid of failure?", "language": "en"})
+    response = client.post(
+        "/ask",
+        json={"question": "Why are humans afraid of failure?", "language": "en", "sentences_per_section": 5},
+    )
 
     assert response.status_code == 200
     body = response.json()
     assert body["rag_sources"] == []
     assert captured["rag_context"] is None
+    assert captured["sentences_per_section"] == 5
     assert saved["source"] == "gemini"
     assert saved["rag_sources"] == []
 

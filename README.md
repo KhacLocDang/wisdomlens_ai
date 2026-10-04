@@ -48,6 +48,7 @@ Optional variables in `.env`:
 | `AI_PROVIDER` | `gemini` | Default provider for generation (`gemini` or `claude`) |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Default Gemini model when UI does not send `model` |
 | `CLAUDE_MODEL` | `claude-3-5-haiku-20241022` | Default Claude model when using the Claude provider |
+| `CLAUDE_MAX_TOKENS` | `8192` | Default Claude output-token ceiling; the Ask UI can override it within the selected model's supported limit |
 | `USE_RAG` | `false` | Set to `true` to make `/ask` use retrieval context by default |
 | `RAG_MIN_SCORE` | `0.35` | Minimum cosine similarity score for a retrieved chunk to be used as context |
 | `POSTGRES_USER` | `wisdomlens` | PostgreSQL username (local dev) |

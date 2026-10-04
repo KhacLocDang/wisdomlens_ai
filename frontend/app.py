@@ -22,6 +22,12 @@ PERSPECTIVES = {
 TOPIC_LABELS = {key: value["vi"] for key, value in PERSPECTIVES.items()}
 TOPIC_LABELS["other"] = "Khác"
 
+CONCISENESS_OPTIONS = {
+    "Ngắn gọn / Brief (1–2 câu)": "brief",
+    "Vừa phải / Balanced (2–4 câu)": "balanced",
+    "Chi tiết / Detailed (4–7 câu)": "detailed",
+}
+
 
 def render_rag_sources(data: dict) -> None:
     rag_sources = data.get("rag_sources") or []
@@ -648,6 +654,8 @@ with tab_ask:
         selected_provider = rev_provider_map[selected_provider_label]
 
     model_id = None
+    claude_max_tokens = None
+    selected_model_info = {}
     with col_model:
         try:
             models = load_models(provider=selected_provider)
@@ -667,10 +675,30 @@ with tab_ask:
                     index=default_index,
                 )
                 model_id = model_labels[selected_model_label]
+                selected_model_info = next(
+                    (item for item in models if item["id"] == model_id),
+                    {},
+                )
             else:
                 st.warning("No models available.")
         except requests.exceptions.RequestException:
             st.warning("Could not load models, backend default will be used.")
+
+    if selected_provider == "claude":
+        max_token_limit = int(selected_model_info.get("max_output_tokens") or 8192)
+        default_max_tokens = min(
+            int(selected_model_info.get("default_max_tokens") or 8192),
+            max_token_limit,
+        )
+        claude_max_tokens = st.number_input(
+            "Giới hạn đầu ra Claude (tokens)",
+            min_value=1,
+            max_value=max_token_limit,
+            value=default_max_tokens,
+            step=1024,
+            help="Đây là trần đầu ra cho một câu trả lời. Backend sẽ kiểm tra giới hạn của model đang chọn.",
+            key=f"claude_max_tokens_{model_id or 'default'}",
+        )
 
     rag_mode_options = [
         ("Theo cấu hình server", None),
@@ -697,6 +725,13 @@ with tab_ask:
         default=list(PERSPECTIVES.keys()),
         format_func=lambda key: PERSPECTIVES[key]["vi"] if "vi" in PERSPECTIVES[key] else key,
     )
+    conciseness_label = st.selectbox(
+        "Độ dài câu trả lời / Answer length",
+        options=list(CONCISENESS_OPTIONS.keys()),
+        index=1,
+        help="Mỗi mục (tóm tắt, góc nhìn, tương đồng/khác biệt) dùng dải câu linh hoạt; nguồn tham khảo không bị giới hạn.",
+    )
+    conciseness = CONCISENESS_OPTIONS[conciseness_label]
 
     if st.button("Hỏi WisdomLens", type="primary"):
         if not question.strip():
@@ -706,6 +741,7 @@ with tab_ask:
                 "question": question.strip(),
                 "language": language,
                 "provider": selected_provider,
+                "conciseness": conciseness,
             }
             if selected_perspectives:
                 payload["perspectives"] = selected_perspectives
@@ -713,6 +749,8 @@ with tab_ask:
                 payload["use_rag"] = rag_mode
             if model_id:
                 payload["model"] = model_id
+            if claude_max_tokens is not None:
+                payload["claude_max_tokens"] = claude_max_tokens
             response = None
             try:
                 response = requests.post(

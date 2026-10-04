@@ -16,6 +16,9 @@ class BaseLLMProvider(ABC):
         model: str | None = None,
         rag_context: dict | None = None,
         perspectives: list[str] | None = None,
+        conciseness: str = "balanced",
+        sentences_per_section: int | None = None,
+        claude_max_tokens: int | None = None,
     ) -> dict:
         """Generate a structured wisdom answer and return it as a dict."""
 

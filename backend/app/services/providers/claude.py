@@ -22,6 +22,30 @@ CLAUDE_MODEL_CATALOG = [
 ]
 
 
+def get_claude_model_max_output_tokens(model_id: str) -> int:
+    normalized = model_id.strip().lower()
+    if "claude-3-7-sonnet" in normalized:
+        return 64000
+    return 8192
+
+
+def get_claude_default_max_tokens(model_id: str) -> int:
+    from app.config import get_claude_max_tokens
+
+    return min(get_claude_max_tokens(), get_claude_model_max_output_tokens(model_id))
+
+
+def _with_output_limits(models: list[dict]) -> list[dict]:
+    return [
+        {
+            **item,
+            "max_output_tokens": get_claude_model_max_output_tokens(item["id"]),
+            "default_max_tokens": get_claude_default_max_tokens(item["id"]),
+        }
+        for item in models
+    ]
+
+
 class ClaudeProvider(BaseLLMProvider):
     """LLM provider backed by Anthropic Claude."""
 
@@ -29,7 +53,7 @@ class ClaudeProvider(BaseLLMProvider):
         from app.config import get_claude_api_key
         api_key = get_claude_api_key()
         if not api_key:
-            return CLAUDE_MODEL_CATALOG
+            return _with_output_limits(CLAUDE_MODEL_CATALOG)
 
         try:
             import anthropic
@@ -41,9 +65,9 @@ class ClaudeProvider(BaseLLMProvider):
                     continue
                 display_name = getattr(m, "display_name", None) or model_id
                 models.append({"id": model_id, "display_name": display_name})
-            return models or CLAUDE_MODEL_CATALOG
+            return _with_output_limits(models or CLAUDE_MODEL_CATALOG)
         except Exception:
-            return CLAUDE_MODEL_CATALOG
+            return _with_output_limits(CLAUDE_MODEL_CATALOG)
 
     def generate_answer(
         self,
@@ -52,6 +76,9 @@ class ClaudeProvider(BaseLLMProvider):
         model: str | None = None,
         rag_context: dict | None = None,
         perspectives: list[str] | None = None,
+        conciseness: str = "balanced",
+        sentences_per_section: int | None = None,
+        claude_max_tokens: int | None = None,
     ) -> dict:
         from app.config import get_claude_api_key, get_claude_model
         from app.schemas import AskResponse, WisdomFields
@@ -73,13 +100,25 @@ class ClaudeProvider(BaseLLMProvider):
             language=language,
             perspectives=perspectives,
             has_rag=(rag_context is not None),
+            conciseness=conciseness,
+            sentences_per_section=sentences_per_section,
         )
         user_content, rag_sources = build_user_content(question, rag_context)
+
+        model_token_limit = get_claude_model_max_output_tokens(model_id)
+        if claude_max_tokens is None:
+            max_tokens = get_claude_default_max_tokens(model_id)
+        elif claude_max_tokens > model_token_limit:
+            raise ValueError(
+                f"claude_max_tokens exceeds the {model_id} output limit of {model_token_limit}."
+            )
+        else:
+            max_tokens = claude_max_tokens
 
         client = anthropic.Anthropic(api_key=api_key)
         response = client.messages.create(
             model=model_id,
-            max_tokens=4096,
+            max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": user_content}],
         )

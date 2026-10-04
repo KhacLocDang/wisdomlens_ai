@@ -6,7 +6,7 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.config import get_embedding_model, use_fake_answers, use_rag
+from app.config import get_claude_model, get_embedding_model, use_fake_answers, use_rag
 from app.config import get_audio_storage_root
 from app.database import check_db_connection, get_db
 from app.repositories.inquiry_repository import (
@@ -57,6 +57,7 @@ from app.services.providers import (
     list_models_for_provider,
     list_supported_providers,
 )
+from app.services.providers.claude import get_claude_model_max_output_tokens
 from app.services.tts_service import (
     list_tts_models,
     list_tts_voices,
@@ -147,7 +148,19 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
     language = request.language
     rag_enabled = request.use_rag if request.use_rag is not None else use_rag()
     perspectives = request.perspectives
-    requested_provider = request.provider
+    requested_provider = request.provider.strip().lower() if request.provider else None
+
+    if requested_provider == "claude" and request.claude_max_tokens is not None:
+        model_id_for_limit = request.model or get_claude_model()
+        max_allowed_tokens = get_claude_model_max_output_tokens(model_id_for_limit)
+        if request.claude_max_tokens > max_allowed_tokens:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    f"claude_max_tokens cannot exceed {max_allowed_tokens} for model "
+                    f"{model_id_for_limit}."
+                ),
+            )
 
     if perspectives is not None:
         supported = {"buddhism", "western_philosophy", "psychology", "christianity", "eastern_philosophy", "natural_science"}
@@ -185,6 +198,8 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
                     model=model,
                     rag_context=rag_context,
                     perspectives=perspectives,
+                    conciseness=request.conciseness,
+                    sentences_per_section=request.sentences_per_section,
                 )
                 source = "gemini"
             else:
@@ -195,6 +210,9 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
                     model=request.model,
                     rag_context=rag_context,
                     perspectives=perspectives,
+                    conciseness=request.conciseness,
+                    sentences_per_section=request.sentences_per_section,
+                    claude_max_tokens=request.claude_max_tokens,
                 )
                 source = requested_provider
                 model = request.model or answer.get("model")

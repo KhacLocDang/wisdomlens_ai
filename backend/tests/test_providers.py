@@ -29,6 +29,10 @@ def test_list_models_with_provider_param():
     claude_models = res_claude.json()
     assert len(claude_models) > 0
     assert any("claude" in m["id"].lower() for m in claude_models)
+    sonnet_37 = next(m for m in claude_models if "claude-3-7-sonnet" in m["id"])
+    haiku_35 = next(m for m in claude_models if "claude-3-5-haiku" in m["id"])
+    assert sonnet_37["max_output_tokens"] == 64000
+    assert haiku_35["max_output_tokens"] == 8192
 
     # Invalid provider
     res_invalid = client.get("/models?provider=unknown_provider")
@@ -51,6 +55,8 @@ def test_ask_with_claude_provider(monkeypatch):
     ):
         captured["provider"] = provider
         captured["model"] = model
+        captured["sentences_per_section"] = kwargs.get("sentences_per_section")
+        captured["claude_max_tokens"] = kwargs.get("claude_max_tokens")
         return {
             "question": question,
             "summary": "Claude summary",
@@ -81,6 +87,8 @@ def test_ask_with_claude_provider(monkeypatch):
             "provider": "claude",
             "model": "claude-3-5-haiku-20241022",
             "perspectives": ["buddhism"],
+            "sentences_per_section": 5,
+            "claude_max_tokens": 6000,
         },
     )
 
@@ -89,17 +97,41 @@ def test_ask_with_claude_provider(monkeypatch):
     assert body["summary"] == "Claude summary"
     assert captured["provider"] == "claude"
     assert captured["model"] == "claude-3-5-haiku-20241022"
+    assert captured["sentences_per_section"] == 5
+    assert captured["claude_max_tokens"] == 6000
     assert saved["source"] == "claude"
     assert saved["model"] == "claude-3-5-haiku-20241022"
 
 
+def test_ask_rejects_claude_tokens_above_selected_model_limit(monkeypatch):
+    monkeypatch.setattr("app.main.use_fake_answers", lambda: False)
+    monkeypatch.setattr(
+        "app.main.generate_provider_answer",
+        lambda **kwargs: (_ for _ in ()).throw(AssertionError("provider must not be called")),
+    )
+
+    response = client.post(
+        "/ask",
+        json={
+            "question": "Test question",
+            "provider": " CLAUDE ",
+            "model": "claude-3-5-sonnet-20241022",
+            "claude_max_tokens": 8193,
+        },
+    )
+
+    assert response.status_code == 400
+    assert "cannot exceed 8192" in response.json()["detail"]
+
+
 def test_claude_preserves_unparseable_response(monkeypatch):
     raw_text = '{"summary": "Partial Claude answer'
-    calls = {"count": 0}
+    calls = {"count": 0, "max_tokens": None}
 
     class FakeMessages:
         def create(self, **kwargs):
             calls["count"] += 1
+            calls["max_tokens"] = kwargs["max_tokens"]
             return SimpleNamespace(
                 content=[SimpleNamespace(type="text", text=raw_text)],
                 stop_reason="max_tokens",
@@ -111,13 +143,62 @@ def test_claude_preserves_unparseable_response(monkeypatch):
 
     monkeypatch.setattr("app.config.get_claude_api_key", lambda: "test-key")
     monkeypatch.setattr("app.config.get_claude_model", lambda: "claude-test")
+    monkeypatch.setattr("app.config.get_claude_max_tokens", lambda: 8192)
     monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(Anthropic=FakeAnthropic))
 
     answer = ClaudeProvider().generate_answer("Test question")
 
     assert calls["count"] == 1
+    assert calls["max_tokens"] == 8192
     assert answer["summary"] == raw_text
     assert "token limit" in answer["generation_warning"]
+
+
+def test_claude_uses_requested_tokens_and_sentence_count(monkeypatch):
+    captured = {}
+    valid_json = '{"summary":"Answer","perspectives":{},"similarities":"","differences":"","references":[]}'
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return SimpleNamespace(
+                content=[SimpleNamespace(type="text", text=valid_json)],
+                stop_reason="end_turn",
+            )
+
+    class FakeAnthropic:
+        def __init__(self, api_key):
+            self.messages = FakeMessages()
+
+    monkeypatch.setattr("app.config.get_claude_api_key", lambda: "test-key")
+    monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(Anthropic=FakeAnthropic))
+
+    answer = ClaudeProvider().generate_answer(
+        "Test question",
+        model="claude-3-5-sonnet-20241022",
+        sentences_per_section=5,
+        claude_max_tokens=7000,
+    )
+
+    assert answer["summary"] == "Answer"
+    assert captured["max_tokens"] == 7000
+    assert "mỗi phần văn bản gồm 5 câu" in captured["system"]
+
+
+def test_claude_rejects_token_override_above_model_cap(monkeypatch):
+    monkeypatch.setattr("app.config.get_claude_api_key", lambda: "test-key")
+    monkeypatch.setitem(sys.modules, "anthropic", SimpleNamespace(Anthropic=lambda **kwargs: None))
+
+    try:
+        ClaudeProvider().generate_answer(
+            "Test question",
+            model="claude-3-5-haiku-20241022",
+            claude_max_tokens=8193,
+        )
+    except ValueError as exc:
+        assert "output limit of 8192" in str(exc)
+    else:
+        raise AssertionError("Expected a token limit validation error")
 
 
 def test_ask_saves_unparseable_claude_response(monkeypatch):

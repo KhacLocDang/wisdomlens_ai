@@ -301,6 +301,9 @@ def generate_provider_answer(
     model: str | None = None,
     rag_context: dict | None = None,
     perspectives: list[str] | None = None,
+    conciseness: str = "balanced",
+    sentences_per_section: int | None = None,
+    claude_max_tokens: int | None = None,
 ) -> dict:
     """Dispatch generation to the configured provider or a specific provider override."""
     from app.services.providers import get_provider
@@ -316,6 +319,9 @@ def generate_provider_answer(
         model=model,
         rag_context=rag_context,
         perspectives=perspectives,
+        conciseness=conciseness,
+        sentences_per_section=sentences_per_section,
+        claude_max_tokens=claude_max_tokens,
     )
 
 
@@ -325,74 +331,25 @@ def generate_gemini_answer(
     model: str | None = None,
     rag_context: dict | None = None,
     perspectives: list[str] | None = None,
+    conciseness: str = "balanced",
+    sentences_per_section: int | None = None,
 ) -> dict:
     """Call Gemini and return a structured answer matching AskResponse."""
+    from app.services.providers.common import build_system_prompt, build_user_content
+
     api_key = get_gemini_api_key()
     if not api_key:
         raise ValueError("GEMINI_API_KEY is not configured")
 
     model_id = resolve_model(model)
-    prompt = SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS["vi"])
-    contents = f"Question: {question}"
-
-    if perspectives is None:
-        perspectives = ["buddhism", "western_philosophy", "psychology", "christianity", "eastern_philosophy", "natural_science"]
-    else:
-        perspectives = [p.lower() for p in perspectives]
-
-    # Map perspective IDs to human readable names for prompt instruction
-    perspective_names = {
-        "en": {
-            "buddhism": "Buddhism",
-            "western_philosophy": "Western philosophy",
-            "psychology": "Psychology",
-            "christianity": "Christianity",
-            "eastern_philosophy": "Eastern philosophy",
-            "natural_science": "Natural science",
-        },
-        "vi": {
-            "buddhism": "Phật giáo",
-            "western_philosophy": "Triết học phương Tây",
-            "psychology": "Tâm lý học",
-            "christianity": "Thiên Chúa giáo",
-            "eastern_philosophy": "Triết học phương Đông",
-            "natural_science": "Khoa học tự nhiên",
-        }
-    }
-    lang_names = perspective_names.get(language, perspective_names["vi"])
-    selected_names = [lang_names.get(p, p) for p in perspectives]
-
-    if language == "en":
-        perspective_list_str = ", ".join(selected_names[:-1]) + " and " + selected_names[-1] if len(selected_names) > 1 else selected_names[0]
-        perspective_instruction = (
-            f"\n\nActive Perspectives:\n"
-            f"You MUST only analyze the question and populate the 'perspectives' JSON object for these keys: {perspectives}.\n"
-            f"Do NOT include any other keys in the 'perspectives' JSON object.\n"
-            f"If only one perspective is selected, set similarities and differences to empty strings \"\"."
-        )
-    else:
-        perspective_list_str = ", ".join(selected_names[:-1]) + " và " + selected_names[-1] if len(selected_names) > 1 else selected_names[0]
-        perspective_instruction = (
-            f"\n\nGóc nhìn hoạt động:\n"
-            f"Bạn BẮT BUỘC chỉ được phân tích câu hỏi và điền thông tin vào đối tượng JSON 'perspectives' cho các khóa sau: {perspectives}.\n"
-            f"KHÔNG được bao gồm bất kỳ khóa nào khác trong đối tượng JSON 'perspectives'.\n"
-            f"Nếu chỉ có một góc nhìn được chọn, hãy đặt similarities và differences thành chuỗi rỗng \"\"."
-        )
-    prompt = f"{prompt}\n{perspective_instruction}"
-
-    rag_sources = []
-    if rag_context is not None:
-        prompt = f"{prompt}\n\n{RAG_INSTRUCTIONS}"
-        rag_sources = rag_context.get("sources") or []
-        retrieved_context = (rag_context.get("context") or "").strip()
-        if retrieved_context:
-            contents = f"Retrieved context:\n{retrieved_context}\n\nUser question: {question}"
-        else:
-            contents = (
-                "Retrieved context: (none)\n\n"
-                "No relevant document chunks were found for this question.\n\n"
-                f"User question: {question}"
-            )
+    prompt = build_system_prompt(
+        language=language,
+        perspectives=perspectives,
+        has_rag=(rag_context is not None),
+        conciseness=conciseness,
+        sentences_per_section=sentences_per_section,
+    )
+    contents, rag_sources = build_user_content(question, rag_context)
 
     client = genai.Client(api_key=api_key)
     response = client.models.generate_content(

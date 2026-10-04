@@ -4,6 +4,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 Language = Literal["vi", "en"]
+Conciseness = Literal["brief", "balanced", "detailed"]
 
 
 class AskRequest(BaseModel):
@@ -28,12 +29,25 @@ class AskRequest(BaseModel):
         examples=[["buddhism", "psychology"]],
         description="List of perspectives to include. Defaults to all if not specified.",
     )
+    conciseness: Conciseness = Field(
+        default="balanced",
+        description="Answer length: brief (1-2), balanced (2-4), detailed (4-7) sentences per section.",
+    )
+    sentences_per_section: int | None = Field(
+        default=None,
+        ge=1,
+        le=10,
+        description="Legacy override: exact sentence count per section. Prefer conciseness.",
+    )
+    claude_max_tokens: int | None = Field(default=None, ge=1, le=64000)
 
 
 class ModelInfo(BaseModel):
     id: str
     display_name: str
     provider: str | None = None
+    max_output_tokens: int | None = None
+    default_max_tokens: int | None = None
 
 
 class WisdomFields(BaseModel):

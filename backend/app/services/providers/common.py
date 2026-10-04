@@ -35,7 +35,7 @@ SYSTEM_PROMPTS = {
         "multiple perspectives.\n\n"
         "Rules:\n"
         "- Provide structured informational perspectives, NOT personal advice or therapy.\n"
-        "- Be thoughtful, accessible, and concise (2-4 sentences per section).\n"
+        "- Be thoughtful and accessible; keep each text section to {sentence_count} sentences.\n"
         "- Cite real sources in references where possible (texts, thinkers, research areas).\n"
         "- Return ONLY valid JSON with these keys:\n"
         "  summary, perspectives, similarities, differences, references\n"
@@ -48,7 +48,7 @@ SYSTEM_PROMPTS = {
         "bằng cách tổng hợp nhiều góc nhìn.\n\n"
         "Quy tắc:\n"
         "- Cung cấp góc nhìn có cấu trúc, KHÔNG đưa lời khuyên cá nhân hay trị liệu.\n"
-        "- Trình bày rõ ràng, dễ hiểu, ngắn gọn (2-4 câu mỗi phần).\n"
+        "- Trình bày rõ ràng, dễ hiểu; mỗi phần văn bản gồm {sentence_count} câu.\n"
         "- Trích dẫn nguồn thật nếu có thể (kinh sách, nhà tư tưởng, lĩnh vực nghiên cứu).\n"
         "- Trả về CHỈ JSON hợp lệ với các key:\n"
         "  summary, perspectives, similarities, differences, references\n"
@@ -57,6 +57,24 @@ SYSTEM_PROMPTS = {
         "- Trả lời toàn bộ bằng tiếng Việt."
     ),
 }
+
+CONCISENESS_SENTENCE_COUNT = {
+    "brief": "1-2",
+    "balanced": "2-4",
+    "detailed": "4-7",
+}
+
+
+def resolve_sentence_count(
+    conciseness: str = "balanced",
+    sentences_per_section: int | None = None,
+) -> str:
+    if sentences_per_section is not None:
+        return str(sentences_per_section)
+    return CONCISENESS_SENTENCE_COUNT.get(
+        conciseness, CONCISENESS_SENTENCE_COUNT["balanced"]
+    )
+
 
 RAG_INSTRUCTIONS = (
     "RAG mode:\n"
@@ -71,9 +89,13 @@ def build_system_prompt(
     language: str = "vi",
     perspectives: list[str] | None = None,
     has_rag: bool = False,
+    conciseness: str = "balanced",
+    sentences_per_section: int | None = None,
 ) -> str:
     """Build standardized system prompt with perspectives and optional RAG rules."""
     prompt = SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS["vi"])
+    sentence_count = resolve_sentence_count(conciseness, sentences_per_section)
+    prompt = prompt.replace("{sentence_count}", sentence_count)
 
     if perspectives is None:
         active_perspectives = ALL_DEFAULT_PERSPECTIVES[:]

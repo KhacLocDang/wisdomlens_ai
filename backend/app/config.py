@@ -60,6 +60,14 @@ def get_claude_model() -> str:
     return os.getenv("CLAUDE_MODEL", "claude-3-5-haiku-20241022").strip()
 
 
+def get_claude_max_tokens() -> int:
+    try:
+        value = int(os.getenv("CLAUDE_MAX_TOKENS", "8192"))
+    except ValueError:
+        return 8192
+    return value if value > 0 else 8192
+
+
 def get_embedding_api_key() -> str | None:
     return os.getenv("EMBEDDING_API_KEY") or os.getenv("GEMINI_API_KEY") or None
 
