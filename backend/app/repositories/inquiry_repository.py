@@ -21,9 +21,11 @@ def save_inquiry(
     rag_sources: list[dict] | None = None,
     answer_type: str = "generated",
     topics: list[str] | None = None,
+    parent_id: int | None = None,
 ) -> Inquiry:
     perspectives = answer.get("perspectives") or {}
     inquiry = Inquiry(
+        parent_id=parent_id,
         question=answer["question"],
         summary=answer["summary"],
         buddhism=perspectives.get("buddhism"),
@@ -44,6 +46,69 @@ def save_inquiry(
     db.commit()
     db.refresh(inquiry)
     return inquiry
+
+
+def update_inquiry_answer(
+    db: Session,
+    inquiry: Inquiry,
+    *,
+    summary: str,
+    perspectives: dict[str, str],
+    similarities: str,
+    differences: str,
+    references: list[str],
+) -> Inquiry:
+    inquiry.summary = summary
+    inquiry.perspectives = perspectives
+    inquiry.buddhism = perspectives.get("buddhism")
+    inquiry.western_philosophy = perspectives.get("western_philosophy")
+    inquiry.psychology = perspectives.get("psychology")
+    inquiry.similarities = similarities
+    inquiry.differences = differences
+    inquiry.references = references
+    db.add(inquiry)
+    db.commit()
+    db.refresh(inquiry)
+    return inquiry
+
+
+def fork_inquiry(
+    db: Session,
+    original: Inquiry,
+    *,
+    summary: str,
+    perspectives: dict[str, str],
+    similarities: str,
+    differences: str,
+    references: list[str],
+) -> Inquiry:
+    forked = Inquiry(
+        parent_id=original.id,
+        question=original.question,
+        summary=summary,
+        buddhism=perspectives.get("buddhism"),
+        western_philosophy=perspectives.get("western_philosophy"),
+        psychology=perspectives.get("psychology"),
+        perspectives=perspectives,
+        similarities=similarities,
+        differences=differences,
+        references=references,
+        rag_sources=original.rag_sources or [],
+        language=original.language,
+        source=original.source,
+        model=original.model,
+        answer_type=original.answer_type or "generated",
+        topics=original.topics or [],
+        manual_fields=original.manual_fields or [],
+        ai_source=original.ai_source,
+        manual_system_prompt=original.manual_system_prompt,
+        manual_sections=original.manual_sections or [],
+    )
+    db.add(forked)
+    db.commit()
+    db.refresh(forked)
+    return forked
+
 
 
 def list_inquiries(db: Session, limit: int = 20, q: str | None = None) -> list[Inquiry]:

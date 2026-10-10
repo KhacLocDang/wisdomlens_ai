@@ -11,10 +11,12 @@ from app.config import get_audio_storage_root
 from app.database import check_db_connection, get_db
 from app.repositories.inquiry_repository import (
     clear_inquiry_audio,
+    fork_inquiry,
     get_inquiry,
     get_inquiry_audio_file_path,
     list_inquiries,
     save_inquiry,
+    update_inquiry_answer,
     update_inquiry_audio,
 )
 from app.repositories.document_repository import get_document, list_documents
@@ -38,6 +40,7 @@ from app.schemas import (
     InquiryAudioResponse,
     InquiryDetail,
     InquirySummary,
+    InquiryUpdateRequest,
     ManualResearchConfigResponse,
     ManualResearchCreateRequest,
     ModelInfo,
@@ -447,6 +450,7 @@ def list_inquiries_endpoint(
     return [
         InquirySummary(
             id=inquiry.id,
+            parent_id=getattr(inquiry, "parent_id", None),
             question=inquiry.question,
             language=inquiry.language,
             created_at=inquiry.created_at,
@@ -539,6 +543,7 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
 
     return InquiryDetail(
         id=inquiry.id,
+        parent_id=getattr(inquiry, "parent_id", None),
         question=inquiry.question,
         summary=inquiry.summary,
         perspectives=inquiry.perspectives or {},
@@ -561,6 +566,107 @@ def get_inquiry_endpoint(inquiry_id: int, db: Session = Depends(get_db)):
         manual_system_prompt=inquiry.manual_system_prompt,
         manual_sections=inquiry.manual_sections or [],
         topics=getattr(inquiry, "topics", None) or [],
+    )
+
+
+@app.put("/inquiries/{inquiry_id}", response_model=InquiryDetail)
+def update_inquiry_endpoint(
+    inquiry_id: int,
+    request: InquiryUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    inquiry = get_inquiry(db, inquiry_id)
+    if inquiry is None:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    updated = update_inquiry_answer(
+        db,
+        inquiry,
+        summary=request.summary.strip(),
+        perspectives=request.perspectives,
+        similarities=request.similarities,
+        differences=request.differences,
+        references=request.references,
+    )
+
+    audio_filename = updated.audio_filename or None
+    audio_available = bool(
+        audio_filename and get_inquiry_audio_file_path(inquiry_id, storage_root=get_audio_storage_root()).exists()
+    )
+
+    return InquiryDetail(
+        id=updated.id,
+        parent_id=updated.parent_id,
+        question=updated.question,
+        summary=updated.summary,
+        perspectives=updated.perspectives or {},
+        similarities=updated.similarities,
+        differences=updated.differences,
+        references=updated.references or [],
+        rag_sources=updated.rag_sources or [],
+        language=updated.language,
+        created_at=updated.created_at,
+        source=updated.source,
+        model=updated.model,
+        audio_available=audio_available,
+        audio_filename=audio_filename,
+        audio_mime_type=updated.audio_mime_type,
+        audio_voice=updated.audio_voice,
+        audio_model=updated.audio_model,
+        answer_type=updated.answer_type or "generated",
+        manual_fields=updated.manual_fields or [],
+        ai_source=updated.ai_source,
+        manual_system_prompt=updated.manual_system_prompt,
+        manual_sections=updated.manual_sections or [],
+        topics=getattr(updated, "topics", None) or [],
+    )
+
+
+@app.post("/inquiries/{inquiry_id}/fork", response_model=InquiryDetail)
+def fork_inquiry_endpoint(
+    inquiry_id: int,
+    request: InquiryUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    original = get_inquiry(db, inquiry_id)
+    if original is None:
+        raise HTTPException(status_code=404, detail="Inquiry not found")
+
+    forked = fork_inquiry(
+        db,
+        original,
+        summary=request.summary.strip(),
+        perspectives=request.perspectives,
+        similarities=request.similarities,
+        differences=request.differences,
+        references=request.references,
+    )
+
+    return InquiryDetail(
+        id=forked.id,
+        parent_id=forked.parent_id,
+        question=forked.question,
+        summary=forked.summary,
+        perspectives=forked.perspectives or {},
+        similarities=forked.similarities,
+        differences=forked.differences,
+        references=forked.references or [],
+        rag_sources=forked.rag_sources or [],
+        language=forked.language,
+        created_at=forked.created_at,
+        source=forked.source,
+        model=forked.model,
+        audio_available=False,
+        audio_filename=None,
+        audio_mime_type=None,
+        audio_voice=None,
+        audio_model=None,
+        answer_type=forked.answer_type or "generated",
+        manual_fields=forked.manual_fields or [],
+        ai_source=forked.ai_source,
+        manual_system_prompt=forked.manual_system_prompt,
+        manual_sections=forked.manual_sections or [],
+        topics=getattr(forked, "topics", None) or [],
     )
 
 

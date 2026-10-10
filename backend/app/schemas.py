@@ -89,6 +89,7 @@ class AskResponse(BaseModel):
 
 class InquirySummary(BaseModel):
     id: int
+    parent_id: int | None = None
     question: str
     language: str
     created_at: datetime
@@ -100,6 +101,7 @@ class InquirySummary(BaseModel):
 
 class InquiryDetail(AskResponse):
     id: int
+    parent_id: int | None = None
     language: str
     created_at: datetime
     source: str
@@ -115,6 +117,14 @@ class InquiryDetail(AskResponse):
     manual_system_prompt: str | None = None
     manual_sections: list[dict[str, str]] = Field(default_factory=list)
     topics: list[str] = Field(default_factory=list)
+
+
+class InquiryUpdateRequest(BaseModel):
+    summary: str = Field(..., min_length=1)
+    perspectives: dict[str, str] = Field(default_factory=dict)
+    similarities: str = ""
+    differences: str = ""
+    references: list[str] = Field(default_factory=list)
 
 
 class ManualResearchCreateRequest(BaseModel):

@@ -361,6 +361,120 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
         if f"{key_prefix}_audio_data" in st.session_state:
             st.audio(st.session_state[f"{key_prefix}_audio_data"], format="audio/wav")
 
+    # Answer Edit Section (only when inquiry has been saved to DB and has an ID)
+    inquiry_id = data.get("id")
+    if inquiry_id is not None:
+        st.divider()
+        with st.expander("✏️ Chỉnh sửa câu trả lời (Edit Answer)", expanded=False):
+            st.caption(
+                "Bạn có thể hiệu chỉnh trực tiếp câu trả lời hoặc phân nhánh tạo bản mới "
+                "(vẫn giữ nguyên câu trả lời gốc để tham chiếu)."
+            )
+
+            current_summary = data.get("summary") or ""
+            edit_summary = st.text_area(
+                "Tóm tắt / Summary",
+                value=current_summary,
+                height=130,
+                key=f"{key_prefix}_edit_summary",
+            )
+
+            current_perspectives = data.get("perspectives") or {}
+            if not current_perspectives:
+                current_perspectives = {
+                    k: data.get(k)
+                    for k in ["buddhism", "western_philosophy", "psychology"]
+                    if data.get(k)
+                }
+
+            all_p_keys = list(
+                dict.fromkeys(
+                    list(current_perspectives.keys()) + list(PERSPECTIVES.keys())
+                )
+            )
+            edited_perspectives: dict[str, str] = {}
+
+            st.markdown("**Các góc nhìn / Perspectives:**")
+            p_cols = st.columns(2)
+            for idx, p_key in enumerate(all_p_keys):
+                p_label = PERSPECTIVES.get(p_key, {}).get("vi", p_key.replace("_", " ").title())
+                col = p_cols[idx % 2]
+                with col:
+                    val = current_perspectives.get(p_key) or ""
+                    new_val = st.text_area(
+                        f"Góc nhìn: {p_label}",
+                        value=val,
+                        height=110,
+                        key=f"{key_prefix}_edit_p_{p_key}",
+                    )
+                    if new_val.strip():
+                        edited_perspectives[p_key] = new_val.strip()
+
+            c_sim, c_diff = st.columns(2)
+            with c_sim:
+                edit_similarities = st.text_area(
+                    "Điểm tương đồng / Similarities",
+                    value=data.get("similarities") or "",
+                    height=100,
+                    key=f"{key_prefix}_edit_sim",
+                )
+            with c_diff:
+                edit_differences = st.text_area(
+                    "Điểm khác biệt / Differences",
+                    value=data.get("differences") or "",
+                    height=100,
+                    key=f"{key_prefix}_edit_diff",
+                )
+
+            current_refs = data.get("references") or []
+            refs_text_val = "\n".join(current_refs)
+            edit_refs_raw = st.text_area(
+                "Tài liệu tham khảo / References (mỗi nguồn một dòng)",
+                value=refs_text_val,
+                height=90,
+                key=f"{key_prefix}_edit_refs",
+            )
+            edit_refs = [line.strip() for line in edit_refs_raw.splitlines() if line.strip()]
+
+            edit_mode = st.radio(
+                "Cách lưu chỉnh sửa:",
+                options=[
+                    "Ghi đè trực tiếp vào bản ghi này (Update in-place)",
+                    "Tạo bản ghi mới (Fork as new revision - giữ nguyên bản gốc)",
+                ],
+                index=0,
+                key=f"{key_prefix}_edit_mode",
+            )
+
+            if st.button("💾 Lưu chỉnh sửa", key=f"{key_prefix}_save_edit_btn", type="primary"):
+                if not edit_summary.strip():
+                    st.warning("Tóm tắt không được để trống.")
+                else:
+                    payload = {
+                        "summary": edit_summary.strip(),
+                        "perspectives": edited_perspectives,
+                        "similarities": edit_similarities.strip(),
+                        "differences": edit_differences.strip(),
+                        "references": edit_refs,
+                    }
+                    is_fork = "Tạo bản ghi mới" in edit_mode
+                    endpoint = f"{BACKEND_URL}/inquiries/{inquiry_id}/fork" if is_fork else f"{BACKEND_URL}/inquiries/{inquiry_id}"
+                    method = requests.post if is_fork else requests.put
+
+                    try:
+                        res = method(endpoint, json=payload, timeout=30)
+                        if res.status_code == 200:
+                            saved_detail = res.json()
+                            if is_fork:
+                                st.success(f"Đã tạo bản ghi mới #{saved_detail['id']} (sửa từ #{inquiry_id})!")
+                            else:
+                                st.success(f"Đã cập nhật bản ghi #{inquiry_id} thành công!")
+                            st.rerun()
+                        else:
+                            show_backend_error(res, "Không thể lưu chỉnh sửa.")
+                    except requests.exceptions.RequestException as exc:
+                        st.error(f"Lỗi kết nối khi lưu: {exc}")
+
 
 
 def show_backend_error(response: requests.Response | None, fallback: str) -> None:
@@ -387,7 +501,8 @@ def format_inquiry_label(item: dict) -> str:
         question = question[:77] + "..."
 
     lang = item.get("language", "vi").upper()
-    return f"#{item['id']} [{lang}] - {question} ({created_text})"
+    parent_tag = f" 🌿(sửa từ #{item['parent_id']})" if item.get("parent_id") else ""
+    return f"#{item['id']}{parent_tag} [{lang}] - {question} ({created_text})"
 
 
 def format_document_label(item: dict) -> str:
@@ -826,6 +941,8 @@ with tab_history:
                 meta_parts.append(f"Language: {lang_display}")
             if detail.get("model"):
                 meta_parts.append(f"Model: {detail['model']}")
+            if detail.get("parent_id"):
+                meta_parts.append(f"🌿 Phiên bản sửa từ #{detail['parent_id']}")
             if detail.get("created_at"):
                 meta_parts.append(f"Time: {detail['created_at']}")
             st.caption(" | ".join(meta_parts))

@@ -16,7 +16,10 @@ def test_list_providers():
     assert "claude" in providers
 
 
-def test_list_models_with_provider_param():
+def test_list_models_with_provider_param(monkeypatch):
+    from app.services.providers.claude import CLAUDE_MODEL_CATALOG, _with_output_limits
+    monkeypatch.setattr(ClaudeProvider, "list_models", lambda self: _with_output_limits(CLAUDE_MODEL_CATALOG))
+
     # Gemini models
     res_gemini = client.get("/models?provider=gemini")
     assert res_gemini.status_code == 200

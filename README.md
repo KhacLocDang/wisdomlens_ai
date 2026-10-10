@@ -199,6 +199,14 @@ Available topic labels are Buddhism, Psychology, Western Philosophy, Christianit
 
 Manual Research does not call Claude API and does not require `CLAUDE_API_KEY`; the key is only needed for the separate Claude provider in the Ask tab. The supporting endpoints are `GET /manual-research/config` and `POST /manual-research`.
 
+## Feature: Answer Editing and Versioning (Forking)
+
+WisdomLens AI allows users to refine saved wisdom answers directly or branch them into new versions:
+
+- **In-place Update:** Directly modifies the summary, perspectives, similarities, differences, or references of an existing record via `PUT /inquiries/{id}`. Useful for correcting minor typos or refining phrasing.
+- **Fork as New Revision:** Creates a new record that retains the original question and model metadata while storing the edited answer and referencing the original via `parent_id` via `POST /inquiries/{id}/fork`.
+- **Intuitive UI:** Expand the **"✏️ Chỉnh sửa câu trả lời (Edit Answer)"** section under any answer in the History tab to edit fields and select the desired save mode. Revisions are clearly tagged with `🌿 (sửa từ #...)` in both the selection list and metadata details.
+
 ## Research Agent (Experimental)
 
 A standalone exploratory tool (`analysis/research_agent.py`) that reads saved inquiries from PostgreSQL (read-only) and uses Gemini to identify recurring life themes, compare perspective patterns, and generate hypotheses for further research. Reports are saved to `analysis/research_report.md`.

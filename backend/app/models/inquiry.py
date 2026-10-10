@@ -1,5 +1,6 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text, func
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import relationship
 
 from app.database import Base
 
@@ -8,6 +9,7 @@ class Inquiry(Base):
     __tablename__ = "inquiries"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    parent_id = Column(Integer, ForeignKey("inquiries.id", ondelete="SET NULL"), nullable=True)
     question = Column(Text, nullable=False)
     summary = Column(Text, nullable=False)
     buddhism = Column(Text, nullable=True)
@@ -33,3 +35,5 @@ class Inquiry(Base):
     audio_model = Column(String(100), nullable=True)
     audio_created_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    parent = relationship("Inquiry", remote_side=[id], backref="revisions")
