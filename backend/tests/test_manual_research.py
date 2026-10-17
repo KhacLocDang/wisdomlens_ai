@@ -33,6 +33,9 @@ def test_manual_research_config_returns_system_prompt_only():
         "christianity",
         "eastern_philosophy",
         "natural_science",
+        "literature",
+        "art",
+        "music",
         "other",
     }
 

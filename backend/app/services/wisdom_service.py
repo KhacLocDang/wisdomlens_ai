@@ -110,6 +110,18 @@ FAKE_ANSWERS = {
             "From natural science (placeholder): fear of failure is rooted in evolutionary "
             "threat-detection mechanisms that protect survival and social standing."
         ),
+        "literature": (
+            "From a literature perspective (placeholder): stories and poems throughout "
+            "history capture the depth of human experience, conflict, and transformation."
+        ),
+        "art": (
+            "From an art perspective (placeholder): visual and plastic arts express the "
+            "unspoken tensions of existence and provide catharsis and reflection."
+        ),
+        "music": (
+            "From a music perspective (placeholder): musical harmony and rhythm resonate "
+            "with human emotion, transmuting suffering into beauty and connection."
+        ),
         "similarities": (
             "All lenses (placeholder) connect fear of failure to how "
             "humans relate to uncertainty, identity, and the need for meaning."
@@ -118,7 +130,8 @@ FAKE_ANSWERS = {
             "They differ (placeholder) in emphasis: Buddhism on attachment, "
             "Western philosophy on ethics and meaning, psychology on cognition and behavior, "
             "Christianity on redemption and faith, Eastern philosophy on virtue and balance, "
-            "natural science on evolutionary adaptation."
+            "natural science on evolutionary adaptation, literature on narrative depth, "
+            "art on aesthetic expression, music on emotional resonance."
         ),
         "references": [
             "Placeholder — Dhammapada (Buddhist teachings)",
@@ -131,7 +144,8 @@ FAKE_ANSWERS = {
             "Đây là bản tóm tắt tạm. "
             "WisdomLens AI sẽ tổng hợp góc nhìn từ "
             "Phật giáo, Triết học phương Tây, Tâm lý học, "
-            "Thiên Chúa giáo, Triết học phương Đông, và Khoa học tự nhiên."
+            "Thiên Chúa giáo, Triết học phương Đông, Khoa học tự nhiên, "
+            "Văn học, Nghệ thuật, và Âm nhạc."
         ),
         "buddhism": (
             "Từ góc nhìn Phật giáo (tạm): khổ đau thường phát sinh "
@@ -157,6 +171,18 @@ FAKE_ANSWERS = {
             "Từ góc nhìn Khoa học tự nhiên (tạm): nỗi sợ thất bại bắt nguồn từ các cơ chế "
             "phát hiện mối nguy tiến hóa giúp bảo vệ sự sống còn và vị thế xã hội."
         ),
+        "literature": (
+            "Từ góc nhìn Văn học (tạm): các tác phẩm văn chương và thơ ca qua các thời kỳ "
+            "khắc họa chiều sâu nội tâm, bi kịch và sự thăng hoa của trải nghiệm con người."
+        ),
+        "art": (
+            "Từ góc nhìn Nghệ thuật (tạm): nghệ thuật thị giác và tạo hình diễn đạt những "
+            "xung đột vô ngôn của kiếp nhân sinh, mang lại sự thanh lọc và chiêm nghiệm."
+        ),
+        "music": (
+            "Từ góc nhìn Âm nhạc (tạm): giai điệu và tiết tấu âm nhạc đồng điệu với thế "
+            "giới cảm xúc, chuyển hóa nỗi đau thành cái đẹp và sự kết nối tâm hồn."
+        ),
         "similarities": (
             "Tất cả các góc nhìn (tạm) đều liên kết nỗi sợ thất bại với cách "
             "con người đối mặt sự bất định, bản sắc, và nhu cầu tìm ý nghĩa."
@@ -165,7 +191,8 @@ FAKE_ANSWERS = {
             "Chúng khác nhau (tạm) ở trọng tâm: Phật giáo về chấp thủ, "
             "Triết học phương Tây về đạo đức và ý nghĩa, Tâm lý học về nhận thức và hành vi, "
             "Thiên Chúa giáo về sự cứu chuộc và đức tin, Triết học phương Đông về đức hạnh và cân bằng, "
-            "Khoa học tự nhiên về sự thích nghi tiến hóa."
+            "Khoa học tự nhiên về sự thích nghi tiến hóa, Văn học về chiều sâu tự sự, "
+            "Nghệ thuật về biểu đạt thẩm mỹ, Âm nhạc về sự cộng hưởng cảm xúc."
         ),
         "references": [
             "Tạm — Kinh Pháp Cú (giáo lý Phật giáo)",
@@ -270,6 +297,7 @@ def generate_fake_answer(
     _all_perspectives = [
         "buddhism", "western_philosophy", "psychology",
         "christianity", "eastern_philosophy", "natural_science",
+        "literature", "art", "music",
     ]
 
     if perspectives is None:

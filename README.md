@@ -8,6 +8,9 @@ WisdomLens AI helps users explore life questions through multiple perspectives:
 - Christianity
 - Eastern philosophy
 - Natural sciences
+- Literature
+- Art
+- Music
 
 This project provides structured information and perspectives so humans and AI can reason together. It is **not** a therapist or deep life advisor.
 
@@ -211,7 +214,7 @@ Use the **Nghiên cứu AI thủ công** tab when you want to work with Claude W
 
 Manual answers are stored in the existing `inquiries` table: the question goes to `question`, the full answer to `summary`, and the AI source/model to `source`/`model`. Optional topic keys are stored separately in the `topics` JSONB field; they do not split or alter the answer or its perspectives. Existing inquiries default to an empty topic list.
 
-Available topic labels are Buddhism, Psychology, Western Philosophy, Christianity, Eastern Philosophy, Natural Science, and Other. Topic labels are metadata only and do not affect the prompt or TTS text. Markdown tables in Claude's answer render as tables when Claude returns standard Markdown table syntax.
+Available topic labels are Buddhism, Psychology, Western Philosophy, Christianity, Eastern Philosophy, Natural Science, Literature, Art, Music, and Other. Topic labels are metadata only and do not affect the prompt or TTS text. Markdown tables in Claude's answer render as tables when Claude returns standard Markdown table syntax.
 
 Manual Research does not call Claude API and does not require `CLAUDE_API_KEY`; the key is only needed for the separate Claude provider in the Ask tab. The supporting endpoints are `GET /manual-research/config` and `POST /manual-research`.
 

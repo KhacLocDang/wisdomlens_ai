@@ -60,6 +60,7 @@ from app.services.providers import (
     list_models_for_provider,
     list_supported_providers,
 )
+from app.services.providers.common import ALL_DEFAULT_PERSPECTIVES
 from app.services.providers.claude import get_claude_model_max_output_tokens
 from app.services.tts_service import (
     list_tts_models,
@@ -166,7 +167,7 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
             )
 
     if perspectives is not None:
-        supported = {"buddhism", "western_philosophy", "psychology", "christianity", "eastern_philosophy", "natural_science"}
+        supported = set(ALL_DEFAULT_PERSPECTIVES)
         normalized = [p.strip().lower() for p in perspectives]
         if not normalized:
             raise HTTPException(status_code=400, detail="At least one perspective must be selected.")

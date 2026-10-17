@@ -9,6 +9,9 @@ PERSPECTIVE_NAMES = {
         "christianity": "Christianity",
         "eastern_philosophy": "Eastern philosophy",
         "natural_science": "Natural science",
+        "literature": "Literature",
+        "art": "Art",
+        "music": "Music",
     },
     "vi": {
         "buddhism": "Phật giáo",
@@ -17,6 +20,9 @@ PERSPECTIVE_NAMES = {
         "christianity": "Thiên Chúa giáo",
         "eastern_philosophy": "Triết học phương Đông",
         "natural_science": "Khoa học tự nhiên",
+        "literature": "Văn học",
+        "art": "Nghệ thuật",
+        "music": "Âm nhạc",
     },
 }
 
@@ -27,6 +33,9 @@ ALL_DEFAULT_PERSPECTIVES = [
     "christianity",
     "eastern_philosophy",
     "natural_science",
+    "literature",
+    "art",
+    "music",
 ]
 
 SYSTEM_PROMPTS = {

@@ -295,3 +295,22 @@ def test_ask_with_selected_perspectives(monkeypatch):
     )
     assert invalid_response.status_code == 400
     assert "Unsupported perspective" in invalid_response.json()["detail"]
+
+
+def test_ask_with_new_perspectives_literature_art_music():
+    response = client.post(
+        "/ask",
+        json={
+            "question": "How do arts and literature express suffering?",
+            "language": "vi",
+            "perspectives": ["literature", "art", "music"],
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert "literature" in data["perspectives"]
+    assert "art" in data["perspectives"]
+    assert "music" in data["perspectives"]
+    assert "buddhism" not in data["perspectives"]
+
