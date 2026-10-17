@@ -101,7 +101,7 @@ def list_providers_endpoint():
 
 
 @app.get("/models", response_model=list[ModelInfo])
-def list_models_endpoint(provider: Optional[str] = Query(None, description="Optional provider filter (gemini, claude)")):
+def list_models_endpoint(provider: Optional[str] = Query(None, description="Optional provider filter (gemini, claude, openai)")):
     """List available text models for specified provider or default provider."""
     try:
         return list_models_for_provider(provider)

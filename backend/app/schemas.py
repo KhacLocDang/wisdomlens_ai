@@ -16,12 +16,12 @@ class AskRequest(BaseModel):
     )
     provider: str | None = Field(
         default=None,
-        examples=["gemini", "claude"],
-        description="LLM provider: 'gemini' or 'claude'. Uses AI_PROVIDER env default if omitted.",
+        examples=["gemini", "claude", "openai"],
+        description="LLM provider: 'gemini', 'claude', or 'openai'. Uses AI_PROVIDER env default if omitted.",
     )
     model: str | None = Field(
         default=None,
-        examples=["gemini-2.5-flash", "claude-3-5-haiku-20241022"],
+        examples=["gemini-2.5-flash", "claude-3-5-haiku-20241022", "gpt-4o-mini"],
         description="Model id. Uses provider default env if omitted.",
     )
     perspectives: list[str] | None = Field(

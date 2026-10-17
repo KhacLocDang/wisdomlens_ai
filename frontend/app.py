@@ -524,7 +524,7 @@ def load_providers() -> list[str]:
         response.raise_for_status()
         return response.json()
     except Exception:
-        return ["gemini", "claude"]
+        return ["gemini", "claude", "openai"]
 
 
 @st.cache_data(ttl=600)
@@ -756,6 +756,7 @@ with tab_ask:
         provider_display_names = {
             "gemini": "Google Gemini",
             "claude": "Anthropic Claude",
+            "openai": "OpenAI GPT",
         }
         selected_provider_label = st.selectbox(
             "Nhà cung cấp AI",
@@ -781,7 +782,7 @@ with tab_ask:
                 }
                 default_index = 0
                 for i, mid in enumerate(model_labels.values()):
-                    if mid in ("gemini-2.5-flash", "gemini-3.5-flash", "claude-3-5-haiku-20241022"):
+                    if mid in ("gemini-2.5-flash", "gemini-3.5-flash", "claude-3-5-haiku-20241022", "gpt-4o-mini"):
                         default_index = i
                         break
                 selected_model_label = st.selectbox(

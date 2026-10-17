@@ -25,7 +25,7 @@ def get_rag_min_score() -> float:
 
 
 def get_ai_provider() -> str:
-    """Default AI provider (gemini, claude). Defaults to gemini."""
+    """Default AI provider (gemini, claude, openai). Defaults to gemini."""
     return os.getenv("AI_PROVIDER", "gemini").strip().lower()
 
 
@@ -66,6 +66,23 @@ def get_claude_max_tokens() -> int:
     except ValueError:
         return 8192
     return value if value > 0 else 8192
+
+
+def get_openai_api_key() -> str | None:
+    return os.getenv("OPENAI_API_KEY") or None
+
+
+FALLBACK_OPENAI_MODELS = [
+    "gpt-4o-mini",
+    "gpt-4o",
+    "gpt-4.1-mini",
+    "o3-mini",
+    "gpt-4-turbo",
+]
+
+
+def get_openai_model() -> str:
+    return os.getenv("OPENAI_MODEL", "gpt-4o-mini").strip()
 
 
 def get_embedding_api_key() -> str | None:

@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from app.services.providers.gemini import GeminiProvider
 from app.services.providers.claude import ClaudeProvider
+from app.services.providers.openai import OpenAIProvider
 
 _REGISTRY: dict[str, type] = {
     "gemini": GeminiProvider,
     "claude": ClaudeProvider,
+    "openai": OpenAIProvider,
 }
 
 

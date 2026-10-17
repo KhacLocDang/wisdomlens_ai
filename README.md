@@ -13,7 +13,7 @@ This project provides structured information and perspectives so humans and AI c
 
 ## Tech stack
 
-- **Backend:** FastAPI (Python) + multiple LLM providers (Gemini by default, Claude as second provider)
+- **Backend:** FastAPI (Python) + multiple LLM providers (Gemini by default, Claude and OpenAI GPT)
 - **Database:** PostgreSQL 16
 - **Frontend:** Streamlit (Python)
 - **Run:** Docker Compose
@@ -35,6 +35,7 @@ Open `.env` and set your provider credentials:
 ```env
 GEMINI_API_KEY=your-real-gemini-key-here
 CLAUDE_API_KEY=your-real-claude-key-here
+OPENAI_API_KEY=your-real-openai-key-here
 AI_PROVIDER=gemini
 ```
 
@@ -45,10 +46,11 @@ Optional variables in `.env`:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `USE_FAKE_ANSWERS` | `false` | Set to `true` to skip model generation and return static placeholder answers |
-| `AI_PROVIDER` | `gemini` | Default provider for generation (`gemini` or `claude`) |
+| `AI_PROVIDER` | `gemini` | Default provider for generation (`gemini`, `claude`, or `openai`) |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Default Gemini model when UI does not send `model` |
 | `CLAUDE_MODEL` | `claude-3-5-haiku-20241022` | Default Claude model when using the Claude provider |
 | `CLAUDE_MAX_TOKENS` | `8192` | Default Claude output-token ceiling; the Ask UI can override it within the selected model's supported limit |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Default OpenAI model when using the OpenAI provider |
 | `USE_RAG` | `false` | Set to `true` to make `/ask` use retrieval context by default |
 | `RAG_MIN_SCORE` | `0.35` | Minimum cosine similarity score for a retrieved chunk to be used as context |
 | `POSTGRES_USER` | `wisdomlens` | PostgreSQL username (local dev) |
@@ -115,6 +117,20 @@ List available models for Claude explicitly:
 curl "http://localhost:8000/models?provider=claude"
 ```
 
+List available models for OpenAI explicitly:
+
+```powershell
+curl "http://localhost:8000/models?provider=openai"
+```
+
+Ask a question using OpenAI GPT:
+
+```powershell
+curl -X POST "http://localhost:8000/ask" `
+  -H "Content-Type: application/json" `
+  -d "{\"question\": \"Ý nghĩa của chánh niệm là gì?\", \"language\": \"vi\", \"provider\": \"openai\", \"model\": \"gpt-4o-mini\"}"
+```
+
 List saved questions:
 
 ```powershell
@@ -137,7 +153,7 @@ curl "http://localhost:8000/inquiries/1"
 
 The Streamlit app includes tabs for:
 
-- **Hỏi (Ask)** — ask a new question, choose language, provider (Gemini or Claude), model, and whether to use RAG for that request
+- **Hỏi (Ask)** — ask a new question, choose language, provider (Gemini, Claude, or OpenAI GPT), model, and whether to use RAG for that request
 - **Lịch sử (History)** — browse saved questions from PostgreSQL, including stored RAG source metadata
 - **Nghiên cứu AI thủ công (Manual AI Research)** — copy a prompt to Claude Web, paste its complete answer, optionally tag topics, and save it to History
 - **Semantic Retrieval** — search stored chunks directly
@@ -151,15 +167,15 @@ The Streamlit app includes tabs for:
 - **Migration:** Alembic migration creates the `perspectives` column and keeps the older perspective columns nullable for backward compatibility.
 - **Schema:** `GeminiWisdomFields` now includes a `perspectives: dict[str, str]` field, and responses store each perspective's answer in this dict.
 
-## Feature: Multiple LLM Providers (Gemini & Claude)
+## Feature: Multiple LLM Providers (Gemini, Claude & OpenAI)
 
-WisdomLens AI allows flexible switching between AI providers:
-- **Supported Providers:** Google Gemini (`gemini`) and Anthropic Claude (`claude`).
+WisdomLens AI allows flexible switching between multiple AI providers:
+- **Supported Providers:** Google Gemini (`gemini`), Anthropic Claude (`claude`), and OpenAI GPT (`openai`).
 - **Default behavior:** Gemini remains the default provider for backward compatibility.
-- **Configuration (`.env`):** Set `CLAUDE_API_KEY=sk-ant-...`, optionally set `AI_PROVIDER=claude`, and keep `GEMINI_API_KEY` for Gemini usage.
-- **Streamlit UI:** Select provider from the "Nhà cung cấp AI" dropdown in the Ask tab; model list updates automatically.
-- **API `/ask`:** Pass `"provider": "claude"` and `"model": "claude-3-5-haiku-20241022"` in the JSON payload.
-- **Extensibility:** The provider layer is designed so future providers such as GPT-compatible APIs or open-source local models can be added with the same contract.
+- **Configuration (`.env`):** Set `GEMINI_API_KEY`, `CLAUDE_API_KEY`, or `OPENAI_API_KEY`. Optionally set `AI_PROVIDER=openai` (or `claude`).
+- **Streamlit UI:** Select provider from the "Nhà cung cấp AI" dropdown in the Ask tab; model list updates automatically (`gpt-4o-mini`, `gpt-4o`, `o3-mini`, etc.).
+- **API `/ask`:** Pass `"provider": "openai"` and `"model": "gpt-4o-mini"` in the JSON payload.
+- **Extensibility:** The provider layer uses a standardized `BaseLLMProvider` contract and factory registry, making it easy to add future providers (e.g. local open-source models).
 
 ## Feature: Text-to-Speech (TTS)
 
@@ -277,7 +293,7 @@ Replace `<project-root>` with where you cloned this repo (e.g. `%USERPROFILE%\de
 
 ## Current limitations
 
-- Gemini remains the default provider; Claude is available as a second supported option
+- Gemini remains the default provider; Claude and OpenAI GPT are available as fully supported options
 - Static placeholder answers are still used when `USE_FAKE_ANSWERS=true`
 - RAG is optional and only uses stored chunks that pass the similarity threshold
 - History shows all saved questions, with no login or per-user filtering yet
@@ -289,8 +305,7 @@ Replace `<project-root>` with where you cloned this repo (e.g. `%USERPROFILE%\de
 1. Render source citations inline in the UI
 2. Improve retrieval ranking and chunk metadata
 3. Add authentication and per-user history
-4. Add support for GPT-compatible providers and open-source local models via the same provider abstraction
-5. Add local model support via Ollama (e.g. Llama, Gemma)
+4. Add open-source local model support via Ollama (e.g. Llama, Gemma) using the same provider abstraction
 
 ## License & Usage Notice
 

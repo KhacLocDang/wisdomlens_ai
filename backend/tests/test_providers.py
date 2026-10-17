@@ -14,6 +14,7 @@ def test_list_providers():
     providers = response.json()
     assert "gemini" in providers
     assert "claude" in providers
+    assert "openai" in providers
 
 
 def test_list_models_with_provider_param(monkeypatch):
@@ -36,6 +37,13 @@ def test_list_models_with_provider_param(monkeypatch):
     haiku_35 = next(m for m in claude_models if "claude-3-5-haiku" in m["id"])
     assert sonnet_37["max_output_tokens"] == 64000
     assert haiku_35["max_output_tokens"] == 8192
+
+    # OpenAI models
+    res_openai = client.get("/models?provider=openai")
+    assert res_openai.status_code == 200
+    openai_models = res_openai.json()
+    assert len(openai_models) > 0
+    assert any("gpt" in m["id"].lower() for m in openai_models)
 
     # Invalid provider
     res_invalid = client.get("/models?provider=unknown_provider")
