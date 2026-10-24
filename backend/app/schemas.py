@@ -133,7 +133,7 @@ class ManualResearchCreateRequest(BaseModel):
     language: Language = "vi"
     ai_source: str = Field(..., min_length=1, max_length=20)
     model: str = Field(..., min_length=1, max_length=100)
-    topics: list[str] = Field(default_factory=list, max_length=7)
+    topics: list[str] = Field(default_factory=list, max_length=11)
 
 
 class ManualResearchTopicOption(BaseModel):

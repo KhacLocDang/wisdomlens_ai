@@ -5,6 +5,7 @@ TOPIC_OPTIONS = [
     {"key": "psychology", "label": "Tâm lý học / Psychology"},
     {"key": "western_philosophy", "label": "Triết học phương Tây / Western Philosophy"},
     {"key": "christianity", "label": "Thiên Chúa giáo / Christianity"},
+    {"key": "islam", "label": "Hồi giáo / Islam"},
     {"key": "eastern_philosophy", "label": "Triết học phương Đông / Eastern Philosophy"},
     {"key": "natural_science", "label": "Khoa học tự nhiên / Natural Science"},
     {"key": "literature", "label": "Văn học / Literature"},

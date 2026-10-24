@@ -76,7 +76,8 @@ FAKE_ANSWERS = {
         "summary": (
             "This is a placeholder summary. "
             "WisdomLens AI will synthesize perspectives from "
-            "Buddhism, Western philosophy, and psychology."
+            "Buddhism, Western philosophy, psychology, Christianity, Islam, Eastern philosophy, "
+            "natural science, literature, art, and music."
         ),
         "buddhism": (
             "From a Buddhist perspective (placeholder): suffering often arises "
@@ -101,6 +102,10 @@ FAKE_ANSWERS = {
         "christianity": (
             "From a Christian perspective (placeholder): failure and suffering can be "
             "understood as part of a redemptive journey, calling for humility and faith."
+        ),
+        "islam": (
+            "From an Islamic perspective (placeholder): hardship can be understood as a "
+            "test that invites patience, trust in God, reflection, and compassionate action."
         ),
         "eastern_philosophy": (
             "From Eastern philosophy (placeholder): thinkers like Confucius and the Tao "
@@ -129,9 +134,9 @@ FAKE_ANSWERS = {
         "differences": (
             "They differ (placeholder) in emphasis: Buddhism on attachment, "
             "Western philosophy on ethics and meaning, psychology on cognition and behavior, "
-            "Christianity on redemption and faith, Eastern philosophy on virtue and balance, "
-            "natural science on evolutionary adaptation, literature on narrative depth, "
-            "art on aesthetic expression, music on emotional resonance."
+            "Christianity on redemption and faith, Islam on patience and trust in God, "
+            "Eastern philosophy on virtue and balance, natural science on evolutionary adaptation, "
+            "literature on narrative depth, art on aesthetic expression, music on emotional resonance."
         ),
         "references": [
             "Placeholder — Dhammapada (Buddhist teachings)",
@@ -144,7 +149,7 @@ FAKE_ANSWERS = {
             "Đây là bản tóm tắt tạm. "
             "WisdomLens AI sẽ tổng hợp góc nhìn từ "
             "Phật giáo, Triết học phương Tây, Tâm lý học, "
-            "Thiên Chúa giáo, Triết học phương Đông, Khoa học tự nhiên, "
+            "Thiên Chúa giáo, Hồi giáo, Triết học phương Đông, Khoa học tự nhiên, "
             "Văn học, Nghệ thuật, và Âm nhạc."
         ),
         "buddhism": (
@@ -162,6 +167,10 @@ FAKE_ANSWERS = {
         "christianity": (
             "Từ góc nhìn Thiên Chúa giáo (tạm): thất bại và khổ đau có thể được hiểu "
             "là một phần trong hành trình cứu chuộc, mời gọi sự khiêm nhường và đức tin."
+        ),
+        "islam": (
+            "Từ góc nhìn Hồi giáo (tạm): nghịch cảnh có thể được hiểu là thử thách "
+            "mang lại cơ hội rèn sự kiên nhẫn, tin tưởng với Thượng đế, suy ngẫm và hành động nhân ái."
         ),
         "eastern_philosophy": (
             "Từ góc nhìn Triết học phương Đông (tạm): các nhà tư tưởng như Khổng Tử và "
@@ -190,9 +199,9 @@ FAKE_ANSWERS = {
         "differences": (
             "Chúng khác nhau (tạm) ở trọng tâm: Phật giáo về chấp thủ, "
             "Triết học phương Tây về đạo đức và ý nghĩa, Tâm lý học về nhận thức và hành vi, "
-            "Thiên Chúa giáo về sự cứu chuộc và đức tin, Triết học phương Đông về đức hạnh và cân bằng, "
-            "Khoa học tự nhiên về sự thích nghi tiến hóa, Văn học về chiều sâu tự sự, "
-            "Nghệ thuật về biểu đạt thẩm mỹ, Âm nhạc về sự cộng hưởng cảm xúc."
+            "Thiên Chúa giáo về sự cứu chuộc và đức tin, Hồi giáo về sự kiên nhẫn và tin tưởng với Thượng đế, "
+            "Triết học phương Đông về đức hạnh và cân bằng, Khoa học tự nhiên về sự thích nghi tiến hóa, "
+            "Văn học về chiều sâu tự sự, Nghệ thuật về biểu đạt thẩm mỹ, Âm nhạc về sự cộng hưởng cảm xúc."
         ),
         "references": [
             "Tạm — Kinh Pháp Cú (giáo lý Phật giáo)",
@@ -296,7 +305,7 @@ def generate_fake_answer(
 
     _all_perspectives = [
         "buddhism", "western_philosophy", "psychology",
-        "christianity", "eastern_philosophy", "natural_science",
+        "christianity", "islam", "eastern_philosophy", "natural_science",
         "literature", "art", "music",
     ]
 

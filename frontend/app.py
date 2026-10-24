@@ -16,6 +16,7 @@ PERSPECTIVES = {
     "western_philosophy": {"vi": "Triết học phương Tây / Western Philosophy"},
     "psychology": {"vi": "Tâm lý học / Psychology"},
     "christianity": {"vi": "Thiên Chúa giáo / Christianity"},
+    "islam": {"vi": "Hồi giáo / Islam"},
     "eastern_philosophy": {"vi": "Triết học phương Đông / Eastern Philosophy"},
     "natural_science": {"vi": "Khoa học tự nhiên / Natural Science"},
     "literature": {"vi": "Văn học / Literature"},
@@ -112,15 +113,7 @@ def assemble_tts_text(data: dict) -> str:
         }
 
     perspective_labels = {
-        "buddhism": "Phật giáo",
-        "western_philosophy": "Triết học phương Tây",
-        "psychology": "Tâm lý học",
-        "christianity": "Thiên Chúa giáo",
-        "eastern_philosophy": "Triết học phương Đông",
-        "natural_science": "Khoa học tự nhiên",
-        "literature": "Văn học",
-        "art": "Nghệ thuật",
-        "music": "Âm nhạc",
+        key: value["vi"].split(" / ")[0] for key, value in PERSPECTIVES.items()
     }
 
     for p_id, p_content in perspectives.items():
@@ -159,15 +152,7 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
         }
 
     perspective_labels = {
-        "buddhism": "Phật giáo / Buddhism",
-        "western_philosophy": "Triết học phương Tây / Western Philosophy",
-        "psychology": "Tâm lý học / Psychology",
-        "christianity": "Thiên Chúa giáo / Christianity",
-        "eastern_philosophy": "Triết học phương Đông / Eastern Philosophy",
-        "natural_science": "Khoa học tự nhiên / Natural Science",
-        "literature": "Văn học / Literature",
-        "art": "Nghệ thuật / Art",
-        "music": "Âm nhạc / Music",
+        key: value["vi"] for key, value in PERSPECTIVES.items()
     }
 
     if data.get("answer_type") == "manual_research" and data.get("manual_sections"):

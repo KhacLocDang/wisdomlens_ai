@@ -31,6 +31,7 @@ def test_manual_research_config_returns_system_prompt_only():
         "psychology",
         "western_philosophy",
         "christianity",
+        "islam",
         "eastern_philosophy",
         "natural_science",
         "literature",
