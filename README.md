@@ -274,7 +274,13 @@ docker compose exec backend alembic upgrade head
 .\scripts\backup.ps1
 ```
 
-Saves a `.sql` file to `backups/` and copies it to `%USERPROFILE%\OneDrive\WisdomLens_Backups\`. It also copies audio files referenced by the current database into `%USERPROFILE%\OneDrive\WisdomLens_Backups\audio\`.
+Saves a `.sql` file to `backups/` and copies it to `WisdomLens_Backups\` inside your OneDrive folder. It also copies audio files referenced by the current database into `WisdomLens_Backups\audio\`.
+
+By default the script uses the `%ONEDRIVE%` environment variable. If you have **multiple OneDrive accounts** on the same machine, set `ONEDRIVE_BACKUP_PATH` in your `.env` to the exact folder of the account you want:
+
+```env
+ONEDRIVE_BACKUP_PATH=C:\Users\YourName\OneDrive - Personal
+```
 
 - Local backups: kept for **14 days**
 - OneDrive SQL backups: kept for **30 days**

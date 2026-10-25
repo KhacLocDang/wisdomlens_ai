@@ -15,17 +15,28 @@ $ErrorActionPreference = "Stop"
 
 # ── Configuration ────────────────────────────────────────────────────────────
 $ProjectRoot  = Split-Path -Parent $PSScriptRoot
+
+# Load .env first so ONEDRIVE_BACKUP_PATH (and other variables) are available
+# before they are referenced below.
+Import-ProjectDotEnv -ProjectRoot $ProjectRoot
+$DbUser = Get-RequiredEnv -Name "POSTGRES_USER"
+$DbName = Get-RequiredEnv -Name "POSTGRES_DB"
+
 $BackupsDir   = Join-Path $ProjectRoot "backups"
 $AudioSourceDir = Join-Path $ProjectRoot "data\audio"
-$OneDriveDir  = Join-Path $env:ONEDRIVE "WisdomLens_Backups"
+# OneDrive destination — set ONEDRIVE_BACKUP_PATH in your .env (or as an
+# environment variable) to point to the specific OneDrive account folder you
+# want to use.  Falls back to the system $env:ONEDRIVE when not set.
+#
+# Example .env entry:
+#   ONEDRIVE_BACKUP_PATH=C:\Users\YourName\OneDrive - Personal
+#   (or whatever path the desired account shows in Explorer)
+$_oneDriveBase = if ($env:ONEDRIVE_BACKUP_PATH) { $env:ONEDRIVE_BACKUP_PATH } else { $env:ONEDRIVE }
+$OneDriveDir  = Join-Path $_oneDriveBase "WisdomLens_Backups"
 $OneDriveAudioDir = Join-Path $OneDriveDir "audio"
 $RetainDays   = 14          # delete local backups older than this
 $RetainOneDrive = 30        # delete OneDrive backups older than this
 $ComposeFile  = Join-Path $ProjectRoot "docker-compose.yml"
-
-Import-ProjectDotEnv -ProjectRoot $ProjectRoot
-$DbUser = Get-RequiredEnv -Name "POSTGRES_USER"
-$DbName = Get-RequiredEnv -Name "POSTGRES_DB"
 # ─────────────────────────────────────────────────────────────────────────────
 
 $Timestamp  = Get-Date -Format "yyyy-MM-dd_HHmm"
