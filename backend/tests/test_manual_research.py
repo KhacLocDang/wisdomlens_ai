@@ -12,10 +12,10 @@ client = TestClient(app)
 def _request_payload() -> dict:
     return {
         "question": "How do people understand suffering?",
-        "answer": "Claude's complete answer with multiple perspectives.",
+        "answer": "An external AI's complete answer with multiple perspectives.",
         "language": "en",
-        "ai_source": "Claude Web",
-        "model": "Claude Sonnet",
+        "ai_source": "ChatGPT",
+        "model": "GPT-5",
         "topics": ["buddhism", "psychology"],
     }
 
@@ -94,9 +94,9 @@ def test_create_manual_research_saves_question_and_complete_answer(monkeypatch):
     assert answer["id"] == 404
     assert answer["answer_type"] == "manual_answer"
     assert answer["question"] == "How do people understand suffering?"
-    assert answer["summary"] == "Claude's complete answer with multiple perspectives."
-    assert answer["source"] == "Claude Web"
-    assert answer["model"] == "Claude Sonnet"
+    assert answer["summary"] == "An external AI's complete answer with multiple perspectives."
+    assert answer["source"] == "ChatGPT"
+    assert answer["model"] == "GPT-5"
     assert answer["topics"] == ["buddhism", "psychology"]
     assert saved["answer"]["summary"] == answer["summary"]
     assert saved["answer_type"] == "manual_answer"

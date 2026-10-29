@@ -159,7 +159,7 @@ The Streamlit app includes tabs for:
 
 - **Hỏi (Ask)** — ask a new question, choose language, provider (Gemini, Claude, or OpenAI GPT), model, and whether to use RAG for that request
 - **Lịch sử (History)** — browse saved questions from PostgreSQL, including stored RAG source metadata
-- **Nghiên cứu AI thủ công (Manual AI Research)** — copy a prompt to Claude Web, paste its complete answer, optionally tag topics, and save it to History
+- **Nghiên cứu AI thủ công (Manual AI Research)** — copy a prompt to an external AI, paste its complete answer, optionally tag topics, and save it to History
 - **Semantic Retrieval** — search stored chunks directly
 - **Tài liệu (Documents)** — inspect uploaded documents and their chunks
 
@@ -203,21 +203,21 @@ Audio can also be saved with an inquiry from the History answer view:
 
 The audio API is available at `POST /inquiries/{inquiry_id}/audio` to synthesize and save, `GET` on the same path to stream the saved file, and `DELETE` to remove the application copy.
 
-## Feature: Manual AI Research with Claude Web
+## Feature: Manual AI Research
 
-Use the **Nghiên cứu AI thủ công** tab when you want to work with Claude Web or another external AI service without sending an API request from WisdomLens:
+Use the **Nghiên cứu AI thủ công** tab when you want to work with an external AI service, such as Claude, ChatGPT, or Gemini, without sending an API request from WisdomLens:
 
 1. Enter a question. Ask for one or more perspectives in the question if needed.
-2. Review or edit the System Prompt, then copy the complete prompt into Claude Web.
-3. Paste Claude's complete answer into one answer field and enter the AI source and model.
+2. Review or edit the System Prompt, then copy the complete prompt into your chosen AI service.
+3. Paste the AI's complete answer into one answer field and enter its source and model.
 4. Optionally select one or more topic labels, or leave them empty.
 5. Save the question-answer pair to History. The answer can then use the existing on-demand TTS controls.
 
 Manual answers are stored in the existing `inquiries` table: the question goes to `question`, the full answer to `summary`, and the AI source/model to `source`/`model`. Optional topic keys are stored separately in the `topics` JSONB field; they do not split or alter the answer or its perspectives. Existing inquiries default to an empty topic list.
 
-Available topic labels are Buddhism, Psychology, Western Philosophy, Christianity, Islam, Eastern Philosophy, Natural Science, Literature, Art, Music, and Other. Topic labels are metadata only and do not affect the prompt or TTS text. Markdown tables in Claude's answer render as tables when Claude returns standard Markdown table syntax.
+Available topic labels are Buddhism, Psychology, Western Philosophy, Christianity, Islam, Eastern Philosophy, Natural Science, Literature, Art, Music, and Other. Topic labels are metadata only and do not affect the prompt or TTS text. Markdown tables in a pasted AI answer render as tables when it uses standard Markdown table syntax.
 
-Manual Research does not call Claude API and does not require `CLAUDE_API_KEY`; the key is only needed for the separate Claude provider in the Ask tab. The supporting endpoints are `GET /manual-research/config` and `POST /manual-research`.
+Manual Research does not call any LLM API and does not require an API key. `CLAUDE_API_KEY` is only needed for the separate Claude provider in the Ask tab. The supporting endpoints are `GET /manual-research/config` and `POST /manual-research`.
 
 ## Feature: Answer Editing and Versioning (Forking)
 

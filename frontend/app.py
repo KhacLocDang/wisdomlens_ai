@@ -611,7 +611,7 @@ def render_manual_research_tab() -> None:
 
     question = st.text_area(
         "Câu hỏi nghiên cứu",
-        placeholder="Nhập câu hỏi cần nghiên cứu. Bạn có thể yêu cầu Claude phân tích qua nhiều góc nhìn.",
+        placeholder="Nhập câu hỏi cần nghiên cứu. Bạn có thể yêu cầu AI bên ngoài phân tích qua nhiều góc nhìn.",
         height=100,
         key="manual_research_question",
     )
@@ -637,7 +637,7 @@ def render_manual_research_tab() -> None:
         height=150,
         key="manual_research_system_prompt",
     )
-    st.caption("Copy hướng dẫn chung này vào Project Instructions hoặc gửi làm tin nhắn đầu tiên trong Claude Web.")
+    st.caption("Copy hướng dẫn chung này vào phần hướng dẫn hoặc gửi làm tin nhắn đầu tiên trong AI bên ngoài bạn chọn.")
     st.code(system_prompt, language=None)
 
     if question.strip():
@@ -646,12 +646,12 @@ def render_manual_research_tab() -> None:
             language,
             system_prompt,
         )
-        st.subheader("Prompt hoàn chỉnh gửi Claude Web")
-        st.caption("Copy toàn bộ prompt này vào Claude Web; nó đã bao gồm System Prompt và câu hỏi.")
+        st.subheader("Prompt hoàn chỉnh gửi AI bên ngoài")
+        st.caption("Copy toàn bộ prompt này vào AI bên ngoài bạn chọn; prompt đã bao gồm System Prompt và câu hỏi.")
         st.code(combined_prompt, language=None)
 
     answer_text = st.text_area(
-        "Câu trả lời từ Claude Web",
+        "Câu trả lời từ AI bên ngoài",
         placeholder="Dán toàn bộ câu trả lời vào đây...",
         height=280,
         key="manual_research_answer",
@@ -659,11 +659,15 @@ def render_manual_research_tab() -> None:
 
     source_col, model_col = st.columns(2)
     with source_col:
-        ai_source = st.text_input("Nguồn AI", value="Claude Web", key="manual_research_ai_source")
+        ai_source = st.text_input(
+            "Nguồn AI bên ngoài",
+            placeholder="Ví dụ: ChatGPT, Claude, Gemini",
+            key="manual_research_ai_source",
+        )
     with model_col:
         model = st.text_input(
             "Model name",
-            placeholder="Ví dụ: Claude Sonnet",
+            placeholder="Ví dụ: GPT-5, Claude Sonnet, Gemini 2.5 Flash",
             key="manual_research_model",
         )
 
@@ -671,7 +675,7 @@ def render_manual_research_tab() -> None:
         if not question.strip():
             st.warning("Bạn cần nhập câu hỏi nghiên cứu.")
         elif not answer_text.strip():
-            st.warning("Bạn cần dán câu trả lời từ Claude Web.")
+            st.warning("Bạn cần dán câu trả lời từ AI bên ngoài.")
         elif not ai_source.strip() or not model.strip():
             st.warning("Bạn cần nhập AI source và model name.")
         else:
