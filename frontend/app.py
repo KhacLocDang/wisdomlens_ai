@@ -5,6 +5,7 @@ import requests
 import streamlit as st
 
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8000")
+BACKEND_TIMEOUT_SECONDS = int(os.getenv("BACKEND_TIMEOUT_SECONDS", "600"))
 
 LANGUAGE_OPTIONS = {
     "Tiếng Việt": "vi",
@@ -721,7 +722,7 @@ def refresh_missing_embeddings(document_id: int | None = None, limit: int | None
     response = requests.post(
         f"{BACKEND_URL}/rag/embeddings/refresh",
         params=params,
-        timeout=120,
+        timeout=BACKEND_TIMEOUT_SECONDS,
     )
     response.raise_for_status()
     return response.json()
@@ -870,7 +871,7 @@ with tab_ask:
                 response = requests.post(
                     f"{BACKEND_URL}/ask",
                     json=payload,
-                    timeout=120,
+                    timeout=BACKEND_TIMEOUT_SECONDS,
                 )
                 response.raise_for_status()
                 st.session_state["latest_ask_result"] = response.json()
