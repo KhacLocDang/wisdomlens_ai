@@ -103,11 +103,15 @@ def build_system_prompt(
     has_rag: bool = False,
     conciseness: str = "balanced",
     sentences_per_section: int | None = None,
+    db: Any | None = None,
 ) -> str:
     """Build standardized system prompt with perspectives and optional RAG rules."""
-    prompt = SYSTEM_PROMPTS.get(language, SYSTEM_PROMPTS["vi"])
+    from app.services.prompt_service import format_prompt_safely, get_effective_prompt
+
+    key = "ask_system_prompt_en" if language == "en" else "ask_system_prompt_vi"
+    prompt = get_effective_prompt(db, key)
     sentence_count = resolve_sentence_count(conciseness, sentences_per_section)
-    prompt = prompt.replace("{sentence_count}", sentence_count)
+    prompt = format_prompt_safely(prompt, sentence_count=sentence_count)
 
     if perspectives is None:
         active_perspectives = ALL_DEFAULT_PERSPECTIVES[:]
@@ -134,7 +138,8 @@ def build_system_prompt(
     prompt = f"{prompt}\n{perspective_instruction}"
 
     if has_rag:
-        prompt = f"{prompt}\n\n{RAG_INSTRUCTIONS}"
+        rag_prompt = get_effective_prompt(db, "rag_instructions")
+        prompt = f"{prompt}\n\n{rag_prompt}"
 
     return prompt
 

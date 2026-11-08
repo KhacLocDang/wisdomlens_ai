@@ -160,6 +160,7 @@ The Streamlit app includes tabs for:
 - **Hỏi (Ask)** — ask a new question, choose language, provider (Gemini, Claude, or OpenAI GPT), model, and whether to use RAG for that request
 - **Lịch sử (History)** — browse saved questions from PostgreSQL, including stored RAG source metadata
 - **Nghiên cứu AI thủ công (Manual AI Research)** — copy a prompt to an external AI, paste its complete answer, optionally tag topics, and save it to History
+- **Quản lý Prompt (Prompt Management)** — view, customize, and restore system prompts and access the reusable AI critique template
 - **Semantic Retrieval** — search stored chunks directly
 - **Tài liệu (Documents)** — inspect uploaded documents and their chunks
 
@@ -189,6 +190,7 @@ WisdomLens AI includes native Text-to-Speech (TTS) using the Google Gemini API:
 - **Configuration (`.env`):**
   - `GEMINI_TTS_MODEL`: default TTS model (e.g. `gemini-3.8-flash-tts`).
   - `GEMINI_TTS_VOICE`: default voice (e.g. `Aoede`).
+- **Gemini API compatibility:** TTS model discovery and synthesis use the Gemini `v1beta` API. The backend requires `google-genai>=2.25.0`; after changing this dependency, rebuild the backend image with `docker compose up -d --build backend`.
 - **Streamlit UI:** Click **"🔊 Đọc câu trả lời (Read Aloud)"** in the answer panel to generate and listen to the audio directly in your browser.
 
 ### Saved Audio for Answers
@@ -226,6 +228,22 @@ WisdomLens AI allows users to refine saved wisdom answers directly or branch the
 - **In-place Update:** Directly modifies the summary, perspectives, similarities, differences, or references of an existing record via `PUT /inquiries/{id}`. Useful for correcting minor typos or refining phrasing.
 - **Fork as New Revision:** Creates a new record that retains the original question and model metadata while storing the edited answer and referencing the original via `parent_id` via `POST /inquiries/{id}/fork`.
 - **Intuitive UI:** Expand the **"✏️ Chỉnh sửa câu trả lời (Edit Answer)"** section under any answer in the History tab to edit fields and select the desired save mode. Revisions are clearly tagged with `🌿 (sửa từ #...)` in both the selection list and metadata details.
+
+## Feature: Prompt Management and AI Answer Critique Workflow
+
+WisdomLens AI includes a centralized Prompt Management tab in the Streamlit frontend and supporting backend APIs to manage, customize, and restore application prompts:
+
+- **Prompt Inventory:** View, edit, save, and restore built-in prompts:
+  - `ask_system_prompt_vi`: Vietnamese system prompt for `/ask`
+  - `ask_system_prompt_en`: English system prompt for `/ask`
+  - `rag_instructions`: Guidance added when RAG context is available
+  - `manual_research_system_prompt`: Prompt for the Manual AI Research feature
+  - `critique_template`: Reusable, model-independent critique prompt template
+- **Single Source of Truth:** Default prompts are retained in code as shipped defaults. Users can customize any prompt and save it; clicking **"Khôi phục mặc định (Restore Default)"** immediately reverts it to the code constant.
+- **Safe Substitution:** Dynamic variables like `{sentence_count}` are parsed safely without runtime errors even if braces `{}` are added or removed during editing.
+- **Optional & Manual Critique:** The critique prompt template is provider-independent. Users copy the template and question/answer manually to an external AI or model; the application does not make automated critique API calls or alter the Ask flow.
+- **Database Safety:** An isolated `prompts` table stores customized text without touching `inquiries`, `documents`, or `document_chunks`.
+- **Future Access Control:** As this is currently a single-user system, Prompt Management is accessible to the user. When multi-user authentication is added, access to this tab and the `/prompts` API endpoints will be restricted exclusively to Admins.
 
 ## Research Agent (Experimental)
 
@@ -321,11 +339,12 @@ Replace `<project-root>` with where you cloned this repo (e.g. `%USERPROFILE%\de
 
 WisdomLens AI is a personal project created for learning, research, and experimentation.
 
-The source code is publicly available for reference. You may download and run the project using your own API keys for personal, educational, research, experimental, or legitimate business purposes.
+This project is provided as a reference and is not sold as a product or service. The source code is publicly available for learning, research, and experimentation.
+
+The software is provided "as is", without warranties or guarantees that it will work for every environment or use case. APIs, AI models, SDKs, dependencies, pricing, quotas, and provider terms may change or be discontinued without notice. As a result, features may stop working, require code or configuration changes, incur costs, or produce unexpected results. Anyone who chooses to use, modify, or deploy this project is responsible for reviewing current provider documentation and terms, configuring their own credentials and billing, testing changes, and evaluating the results and any associated risks. The author is not responsible for losses, charges, or other consequences arising from its use.
 
 Please use this project responsibly and do not use it for illegal, harmful, malicious, abusive, or unethical purposes.
 
 This repository may contain third-party libraries, resources, documentation, or other materials that are subject to their respective licenses and terms. Their rights remain with their respective owners.
 
 Unless otherwise stated, no general license is granted to redistribute, relicense, or commercially distribute the source code itself without permission from the author.
-

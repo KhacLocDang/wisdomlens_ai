@@ -79,6 +79,8 @@ class ClaudeProvider(BaseLLMProvider):
         conciseness: str = "balanced",
         sentences_per_section: int | None = None,
         claude_max_tokens: int | None = None,
+        db: object | None = None,
+        **kwargs: object,
     ) -> dict:
         from app.config import get_claude_api_key, get_claude_model
         from app.schemas import AskResponse, WisdomFields
@@ -102,6 +104,7 @@ class ClaudeProvider(BaseLLMProvider):
             has_rag=(rag_context is not None),
             conciseness=conciseness,
             sentences_per_section=sentences_per_section,
+            db=db,
         )
         user_content, rag_sources = build_user_content(question, rag_context)
 

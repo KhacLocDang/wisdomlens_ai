@@ -5,7 +5,10 @@ from urllib.parse import urlparse, urlunparse
 
 from dotenv import load_dotenv
 
-load_dotenv()
+try:
+    load_dotenv()
+except (PermissionError, OSError):
+    pass
 
 
 def use_fake_answers() -> bool:

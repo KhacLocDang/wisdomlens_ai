@@ -5,6 +5,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 
+from typing import Any
+
+
 class BaseLLMProvider(ABC):
     """Contract that every LLM provider must implement."""
 
@@ -19,6 +22,8 @@ class BaseLLMProvider(ABC):
         conciseness: str = "balanced",
         sentences_per_section: int | None = None,
         claude_max_tokens: int | None = None,
+        db: Any | None = None,
+        **kwargs: Any,
     ) -> dict:
         """Generate a structured wisdom answer and return it as a dict."""
 

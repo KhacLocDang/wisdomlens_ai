@@ -258,7 +258,7 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
                                 "model": chosen_model,
                                 "language": data.get("language", "vi"),
                             },
-                            timeout=60,
+                            timeout=360,
                         )
                         if tts_res.status_code == 200:
                             st.session_state[f"{key_prefix}_audio_data"] = tts_res.content
@@ -342,7 +342,7 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
                                     "model": chosen_model,
                                     "language": data.get("language", "vi"),
                                 },
-                                timeout=60,
+                                timeout=360,
                             )
                             if save_res.status_code == 200:
                                 st.success("Đã lưu audio cho câu trả lời này.")
@@ -728,6 +728,109 @@ def refresh_missing_embeddings(document_id: int | None = None, limit: int | None
     return response.json()
 
 
+def load_all_prompts() -> list[dict]:
+    response = requests.get(f"{BACKEND_URL}/prompts", timeout=20)
+    response.raise_for_status()
+    return response.json()
+
+
+def update_prompt_text(key: str, custom_text: str | None) -> dict:
+    response = requests.put(
+        f"{BACKEND_URL}/prompts/{key}",
+        json={"custom_prompt": custom_text},
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def restore_prompt_default(key: str) -> dict:
+    response = requests.post(
+        f"{BACKEND_URL}/prompts/{key}/restore",
+        timeout=20,
+    )
+    response.raise_for_status()
+    return response.json()
+
+
+def render_prompt_management_tab() -> None:
+    st.header("Quản lý Prompt & Phản biện AI")
+    st.caption(
+        "Xem, tùy biến và khôi phục các System Prompt của hệ thống. "
+        "Bao gồm template phản biện độc lập để tự sao chép khi thẩm định câu trả lời."
+    )
+    st.info(
+        "🔒 **Ghi chú phân quyền**: Hiện tại hệ thống hoạt động ở chế độ cá nhân (đơn người dùng). "
+        "Khi bổ sung tính năng tài khoản và phân quyền người dùng trong tương lai, "
+        "tab và API Quản lý Prompt này sẽ chỉ dành riêng cho tài khoản Quản trị viên (Admin)."
+    )
+
+    try:
+        prompts = load_all_prompts()
+    except requests.exceptions.RequestException as exc:
+        st.error(f"Không thể kết nối đến backend để tải danh sách prompt: {exc}")
+        return
+
+    # Group by category
+    categories: dict[str, list[dict]] = {}
+    for p in prompts:
+        cat = p.get("category", "Khác")
+        categories.setdefault(cat, []).append(p)
+
+    for cat_name, cat_prompts in categories.items():
+        st.subheader(f"📂 Nhóm: {cat_name}")
+        for p in cat_prompts:
+            key = p["key"]
+            is_custom = p.get("is_customized", False)
+            status_text = "🟢 Đang dùng bản tùy biến" if is_custom else "🔵 Đang dùng mặc định gốc"
+
+            with st.container():
+                st.markdown(f"#### {p['name']} ({status_text})")
+                st.caption(f"Khóa định danh: `{key}`")
+                if p.get("description"):
+                    st.write(p["description"])
+
+                if key == "critique_template":
+                    st.markdown("**📋 Hướng dẫn sử dụng Template phản biện:**")
+                    st.markdown(
+                        "- Copy template bên dưới sang AI bạn muốn dùng để đánh giá (cùng model hoặc Claude, ChatGPT, Gemini,...).\n"
+                        "- Thay thế `{{QUESTION}}` bằng câu hỏi ban đầu và `{{AI_ANSWER}}` bằng câu trả lời cần thẩm định.\n"
+                        "- *Lưu ý: Hệ thống không tự động gọi AI phản biện để tránh phát sinh chi phí và bảo đảm quyền chủ động của bạn.*"
+                    )
+
+                text_area_key = f"prompt_input_{key}"
+                edited_text = st.text_area(
+                    "Nội dung prompt đang hiệu lực:",
+                    value=p.get("effective_prompt", ""),
+                    height=200,
+                    key=text_area_key,
+                )
+
+                col_save, col_restore, col_space = st.columns([1.5, 2, 4])
+                with col_save:
+                    if st.button("💾 Lưu thay đổi", key=f"btn_save_{key}"):
+                        try:
+                            update_prompt_text(key, edited_text)
+                            st.success(f"Đã lưu tùy biến cho prompt '{p['name']}'.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Lỗi khi lưu prompt: {exc}")
+
+                with col_restore:
+                    if st.button("🔄 Khôi phục mặc định", key=f"btn_restore_{key}", disabled=not is_custom):
+                        try:
+                            restore_prompt_default(key)
+                            st.success(f"Đã khôi phục prompt '{p['name']}' về mặc định gốc.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Lỗi khi khôi phục prompt: {exc}")
+
+                with st.expander(f"👁️ Xem nội dung mặc định gốc của '{p['name']}'", expanded=False):
+                    st.code(p.get("default_prompt", ""), language=None)
+
+                st.divider()
+
+
 st.set_page_config(page_title="WisdomLens AI", page_icon="🧠", layout="wide")
 
 st.title("WisdomLens AI")
@@ -736,8 +839,8 @@ st.markdown(
     "Góc nhìn có cấu trúc, không phải tư vấn cá nhân hay trị liệu."
 )
 
-tab_ask, tab_history, tab_manual_research, tab_retrieve, tab_documents = st.tabs(
-    ["Hỏi", "Lịch sử", "Nghiên cứu AI thủ công", "Semantic Retrieval", "Tài liệu"]
+tab_ask, tab_history, tab_manual_research, tab_prompts, tab_retrieve, tab_documents = st.tabs(
+    ["Hỏi", "Lịch sử", "Nghiên cứu AI thủ công", "Quản lý Prompt", "Semantic Retrieval", "Tài liệu"]
 )
 
 with tab_ask:
@@ -958,6 +1061,9 @@ with tab_history:
 
 with tab_manual_research:
     render_manual_research_tab()
+
+with tab_prompts:
+    render_prompt_management_tab()
 
 with tab_retrieve:
     st.header("Semantic Retrieval")

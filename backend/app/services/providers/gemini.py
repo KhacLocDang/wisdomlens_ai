@@ -23,6 +23,8 @@ class GeminiProvider(BaseLLMProvider):
         conciseness: str = "balanced",
         sentences_per_section: int | None = None,
         claude_max_tokens: int | None = None,
+        db: object | None = None,
+        **kwargs: object,
     ) -> dict:
         from app.services.wisdom_service import generate_gemini_answer
         return generate_gemini_answer(
@@ -33,5 +35,6 @@ class GeminiProvider(BaseLLMProvider):
             perspectives=perspectives,
             conciseness=conciseness,
             sentences_per_section=sentences_per_section,
+            db=db,
         )
 

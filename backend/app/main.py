@@ -45,9 +45,19 @@ from app.schemas import (
     ManualResearchCreateRequest,
     ModelInfo,
     EmbeddingRefreshResult,
+    PromptItemResponse,
+    PromptUpdateRequest,
     TTSModelInfo,
     TTSRequest,
     TTSVoiceInfo,
+)
+from app.services.prompt_service import (
+    get_prompt_info,
+    list_prompts_info,
+)
+from app.repositories.prompt_repository import (
+    restore_prompt,
+    save_or_update_prompt,
 )
 from app.services.wisdom_service import (
     generate_fake_answer,
@@ -204,6 +214,7 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
                     perspectives=perspectives,
                     conciseness=request.conciseness,
                     sentences_per_section=request.sentences_per_section,
+                    db=db,
                 )
                 source = "gemini"
             else:
@@ -217,6 +228,7 @@ def ask_wisdom(request: AskRequest, db: Session = Depends(get_db)):
                     conciseness=request.conciseness,
                     sentences_per_section=request.sentences_per_section,
                     claude_max_tokens=request.claude_max_tokens,
+                    db=db,
                 )
                 source = requested_provider
                 model = request.model or answer.get("model")
@@ -465,8 +477,65 @@ def list_inquiries_endpoint(
 
 
 @app.get("/manual-research/config", response_model=ManualResearchConfigResponse)
-def manual_research_config_endpoint():
-    return get_manual_research_config()
+def manual_research_config_endpoint(db: Session = Depends(get_db)):
+    return get_manual_research_config(db=db)
+
+
+@app.get("/prompts", response_model=list[PromptItemResponse])
+def list_prompts_endpoint(db: Session = Depends(get_db)):
+    """List all managed prompts with status and effective text.
+
+    Future requirement: Once authentication/roles are added, restrict to Admin only.
+    """
+    return list_prompts_info(db)
+
+
+@app.get("/prompts/{key}", response_model=PromptItemResponse)
+def get_prompt_endpoint(key: str, db: Session = Depends(get_db)):
+    """Retrieve details for a single managed prompt.
+
+    Future requirement: Once authentication/roles are added, restrict to Admin only.
+    """
+    try:
+        return get_prompt_info(db, key)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.put("/prompts/{key}", response_model=PromptItemResponse)
+def update_prompt_endpoint(
+    key: str,
+    request: PromptUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """Save or update custom prompt text.
+
+    Future requirement: Once authentication/roles are added, restrict to Admin only.
+    """
+    try:
+        save_or_update_prompt(db, key, request.custom_prompt)
+        return get_prompt_info(db, key)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to update prompt '%s'", key)
+        raise HTTPException(status_code=500, detail=f"Failed to update prompt: {exc}") from exc
+
+
+@app.post("/prompts/{key}/restore", response_model=PromptItemResponse)
+def restore_prompt_endpoint(key: str, db: Session = Depends(get_db)):
+    """Restore a prompt to its shipped default.
+
+    Future requirement: Once authentication/roles are added, restrict to Admin only.
+    """
+    try:
+        restore_prompt(db, key)
+        return get_prompt_info(db, key)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.exception("Failed to restore prompt '%s'", key)
+        raise HTTPException(status_code=500, detail=f"Failed to restore prompt: {exc}") from exc
 
 
 @app.post("/manual-research", response_model=InquiryDetail)

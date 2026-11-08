@@ -225,3 +225,23 @@ class TTSRequest(BaseModel):
     )
     language: Language = "vi"
 
+
+class PromptItemResponse(BaseModel):
+    key: str
+    name: str
+    category: str
+    description: str | None = None
+    default_prompt: str
+    custom_prompt: str | None = None
+    effective_prompt: str
+    is_customized: bool
+    updated_at: datetime | None = None
+
+
+class PromptUpdateRequest(BaseModel):
+    custom_prompt: str | None = Field(
+        default=None,
+        description="Custom prompt text. Passing empty or whitespace string will restore to default.",
+    )
+
+

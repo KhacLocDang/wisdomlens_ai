@@ -76,6 +76,7 @@ class OpenAIProvider(BaseLLMProvider):
         conciseness: str = "balanced",
         sentences_per_section: int | None = None,
         claude_max_tokens: int | None = None,
+        db: object | None = None,
         **kwargs,
     ) -> dict:
         from app.config import get_openai_api_key, get_openai_model
@@ -100,6 +101,7 @@ class OpenAIProvider(BaseLLMProvider):
             has_rag=(rag_context is not None),
             conciseness=conciseness,
             sentences_per_section=sentences_per_section,
+            db=db,
         )
         user_content, rag_sources = build_user_content(question, rag_context)
 

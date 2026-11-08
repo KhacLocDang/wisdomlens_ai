@@ -341,6 +341,8 @@ def generate_provider_answer(
     conciseness: str = "balanced",
     sentences_per_section: int | None = None,
     claude_max_tokens: int | None = None,
+    db: object | None = None,
+    **kwargs: object,
 ) -> dict:
     """Dispatch generation to the configured provider or a specific provider override."""
     from app.services.providers import get_provider
@@ -359,6 +361,7 @@ def generate_provider_answer(
         conciseness=conciseness,
         sentences_per_section=sentences_per_section,
         claude_max_tokens=claude_max_tokens,
+        db=db,
     )
 
 
@@ -370,6 +373,8 @@ def generate_gemini_answer(
     perspectives: list[str] | None = None,
     conciseness: str = "balanced",
     sentences_per_section: int | None = None,
+    db: object | None = None,
+    **kwargs: object,
 ) -> dict:
     """Call Gemini and return a structured answer matching AskResponse."""
     from app.services.providers.common import build_system_prompt, build_user_content
@@ -385,6 +390,7 @@ def generate_gemini_answer(
         has_rag=(rag_context is not None),
         conciseness=conciseness,
         sentences_per_section=sentences_per_section,
+        db=db,
     )
     contents, rag_sources = build_user_content(question, rag_context)
 

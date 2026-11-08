@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 _tts_models_cache: list[dict] | None = None
 _tts_models_cache_at: float = 0.0
 _TTS_MODELS_CACHE_TTL_SECONDS = 600  # 10 minutes
+_GEMINI_TTS_API_VERSION = "v1beta"
 
 _TTS_EXCLUDE_FRAGMENTS = (
     "embedding",
@@ -67,6 +68,13 @@ def _fallback_tts_model_list() -> list[dict]:
     ]
 
 
+def _create_gemini_tts_client(api_key: str) -> genai.Client:
+    return genai.Client(
+        api_key=api_key,
+        http_options=types.HttpOptions(api_version=_GEMINI_TTS_API_VERSION),
+    )
+
+
 def list_tts_models() -> list[dict]:
     """List Gemini TTS models via Google AI API, with short cache and fallback."""
     global _tts_models_cache, _tts_models_cache_at
@@ -80,7 +88,7 @@ def list_tts_models() -> list[dict]:
         return _fallback_tts_model_list()
 
     try:
-        client = genai.Client(api_key=api_key)
+        client = _create_gemini_tts_client(api_key)
         models: list[dict] = []
         seen: set[str] = set()
 
@@ -178,7 +186,7 @@ def synthesize_speech(
             f"{clean_text}"
         )
 
-    client = genai.Client(api_key=api_key)
+    client = _create_gemini_tts_client(api_key)
 
     try:
         response = client.models.generate_content(
