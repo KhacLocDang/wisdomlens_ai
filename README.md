@@ -186,6 +186,7 @@ WisdomLens AI allows flexible switching between multiple AI providers:
 
 WisdomLens AI includes native Text-to-Speech (TTS) using the Google Gemini API:
 - **Audio Output:** Converts synthesized wisdom answers into expressive speech on demand.
+- **Read Content:** Choose to read the question together with the answer or only the answer. The current default keeps the existing behavior and includes both; the selection applies to both immediate playback generation and saving audio for an inquiry.
 - **Prebuilt Voices:** Choose from 5 voices (`Aoede`, `Kore`, `Puck`, `Charon`, `Fenrir`).
 - **Configuration (`.env`):**
   - `GEMINI_TTS_MODEL`: default TTS model (e.g. `gemini-3.8-flash-tts`).

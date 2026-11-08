@@ -68,10 +68,10 @@ def render_rag_sources(data: dict) -> None:
                 st.json(metadata)
 
 
-def assemble_tts_text(data: dict) -> str:
+def assemble_tts_text(data: dict, include_question: bool = True) -> str:
     parts = []
     question = data.get("question")
-    if question and question.strip():
+    if include_question and question and question.strip():
         parts.append(f"Câu hỏi: {question.strip()}")
 
     if data.get("answer_type") == "manual_research" and data.get("manual_sections"):
@@ -208,6 +208,15 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
     # Text-to-Speech (TTS) Control Section
     st.divider()
     with st.expander("🔊 Đọc câu trả lời (Text-to-Speech / Read Aloud)", expanded=False):
+        tts_content_option = st.radio(
+            "Nội dung đọc",
+            ["Câu hỏi và câu trả lời", "Chỉ câu trả lời"],
+            horizontal=True,
+            key=f"{key_prefix}_tts_content",
+            help="Khi chọn chỉ câu trả lời, câu hỏi sẽ không được gửi đến Gemini TTS.",
+        )
+        include_question_in_tts = tts_content_option == "Câu hỏi và câu trả lời"
+
         tts_col_voice, tts_col_model, tts_col_action = st.columns([2, 2, 1])
 
         tts_voices = load_tts_voices()
@@ -244,7 +253,7 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
             read_clicked = st.button("🔊 Đọc / Read Aloud", key=f"{key_prefix}_read_btn")
 
         if read_clicked:
-            text_to_speak = assemble_tts_text(data)
+            text_to_speak = assemble_tts_text(data, include_question=include_question_in_tts)
             if not text_to_speak.strip():
                 st.warning("Không có nội dung văn bản để đọc.")
             else:
@@ -329,7 +338,7 @@ def render_answer(data: dict, key_prefix: str = "ans") -> None:
             if not data.get("audio_available"):
                 save_clicked = st.button("💾 Lưu audio cho câu trả lời", key=f"{key_prefix}_save_audio")
                 if save_clicked:
-                    text_to_speak = assemble_tts_text(data)
+                    text_to_speak = assemble_tts_text(data, include_question=include_question_in_tts)
                     if not text_to_speak.strip():
                         st.warning("Không có nội dung văn bản để đọc để lưu.")
                     else:
