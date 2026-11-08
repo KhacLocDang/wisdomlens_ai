@@ -15,17 +15,36 @@ from app.services.providers.common import (
 )
 
 # Static catalog — used as fallback when API key is absent or list fails.
+# Max output tokens per model (based on Anthropic docs, Nov 2026):
+#   claude-3-5-haiku / claude-3-5-sonnet : 8,192
+#   claude-3-7-sonnet                     : 64,000
+#   claude-haiku-4-5 / claude-sonnet-4-5 / claude-opus-4-5 : 32,000
+#   claude-sonnet-5-5 / claude-opus-5-5  : 128,000
 CLAUDE_MODEL_CATALOG = [
     {"id": "claude-3-5-haiku-20241022", "display_name": "Claude 3.5 Haiku"},
     {"id": "claude-3-5-sonnet-20241022", "display_name": "Claude 3.5 Sonnet"},
     {"id": "claude-3-7-sonnet-20250219", "display_name": "Claude 3.7 Sonnet"},
+    {"id": "claude-haiku-4-5-20251001", "display_name": "Claude Haiku 4.5"},
+    {"id": "claude-sonnet-4-5-20250929", "display_name": "Claude Sonnet 4.5"},
+    {"id": "claude-opus-4-5-20251101", "display_name": "Claude Opus 4.5"},
+    {"id": "claude-sonnet-5-5", "display_name": "Claude Sonnet 5.5"},
+    {"id": "claude-opus-5-5", "display_name": "Claude Opus 5.5"},
 ]
 
 
 def get_claude_model_max_output_tokens(model_id: str) -> int:
+    """Return the maximum output token limit for a given Claude model ID."""
     normalized = model_id.strip().lower()
+    # Claude 5.5 series — 128,000 output tokens
+    if "claude-sonnet-5-5" in normalized or "claude-opus-5-5" in normalized:
+        return 128000
+    # Claude 4.5 series — 32,000 output tokens
+    if any(tag in normalized for tag in ("claude-haiku-4-5", "claude-sonnet-4-5", "claude-opus-4-5")):
+        return 32000
+    # Claude 3.7 Sonnet — 64,000 output tokens
     if "claude-3-7-sonnet" in normalized:
         return 64000
+    # Claude 3.5 and older — 8,192 output tokens
     return 8192
 
 
@@ -119,18 +138,23 @@ class ClaudeProvider(BaseLLMProvider):
             max_tokens = claude_max_tokens
 
         client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
+        # Use streaming to support models that require it for long requests
+        # (Claude 4.5+ / 5.5 enforce streaming for responses that may take >10 min).
+        # stream.get_final_message() blocks until complete and returns a standard Message.
+        raw_text = ""
+        stop_reason = None
+        with client.messages.stream(
             model=model_id,
             max_tokens=max_tokens,
             system=system_prompt,
             messages=[{"role": "user", "content": user_content}],
-        )
-
-        raw_text = ""
-        for block in response.content:
-            if getattr(block, "type", None) == "text":
-                raw_text = block.text
-                break
+        ) as stream:
+            final_message = stream.get_final_message()
+            stop_reason = getattr(final_message, "stop_reason", None)
+            for block in final_message.content:
+                if getattr(block, "type", None) == "text":
+                    raw_text = block.text
+                    break
 
         if not raw_text:
             raise ValueError("Claude returned an empty response")
@@ -139,7 +163,6 @@ class ClaudeProvider(BaseLLMProvider):
         try:
             fields = WisdomFields.model_validate_json(cleaned)
         except ValidationError:
-            stop_reason = getattr(response, "stop_reason", None)
             if stop_reason == "max_tokens":
                 warning = (
                     "Claude reached its output token limit. The response may be incomplete; "
